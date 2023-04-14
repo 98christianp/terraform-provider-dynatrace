@@ -18,6 +18,7 @@
 package settings
 
 import (
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 )
 
@@ -28,7 +29,7 @@ type ServiceOptions[T Settings] struct {
 	ValidateURL    func(v T) string
 	UpdateURL      func(id string, v T) string
 	DeleteURL      func(id string) string
-	Stubs          RecordStubs
+	Stubs          api.RecordStubs
 	CompleteGet    func(client rest.Client, id string, v T) error
 	CreateRetry    func(v T, err error) T
 	DeleteRetry    func(id string, err error) (bool, error)
@@ -37,12 +38,13 @@ type ServiceOptions[T Settings] struct {
 	OnBeforeUpdate func(id string, v T) error
 	HasNoValidator bool
 	Name           func(id string, v T) (string, error)
-	HijackOnCreate func(err error, service RService[T], v T) (*Stub, error)
+	HijackOnCreate func(err error, service RService[T], v T) (*api.Stub, error)
 	Lock           func()
 	Unlock         func()
+	Duplicates     func(service RService[T], v T) (*api.Stub, error)
 }
 
-func (me *ServiceOptions[T]) Hijack(fn func(err error, service RService[T], v T) (*Stub, error)) *ServiceOptions[T] {
+func (me *ServiceOptions[T]) Hijack(fn func(err error, service RService[T], v T) (*api.Stub, error)) *ServiceOptions[T] {
 	me.HijackOnCreate = fn
 	return me
 }
@@ -63,8 +65,13 @@ func (me *ServiceOptions[T]) WithMutex(lock func(), unlock func()) *ServiceOptio
 	return me
 }
 
-func (me *ServiceOptions[T]) WithStubs(stubs RecordStubs) *ServiceOptions[T] {
+func (me *ServiceOptions[T]) WithStubs(stubs api.RecordStubs) *ServiceOptions[T] {
 	me.Stubs = stubs
+	return me
+}
+
+func (me *ServiceOptions[T]) WithCreateConfirm(confirm int) *ServiceOptions[T] {
+	me.CreateConfirm = confirm
 	return me
 }
 
@@ -79,6 +86,11 @@ func (me *ServiceOptions[T]) WithOnChanged(onChanged func(rest.Client, string, T
 }
 func (me *ServiceOptions[T]) WithDeleteRetry(deleteRetry func(id string, err error) (bool, error)) *ServiceOptions[T] {
 	me.DeleteRetry = deleteRetry
+	return me
+}
+
+func (me *ServiceOptions[T]) WithDuplicates(fnDuplicates func(service RService[T], v T) (*api.Stub, error)) *ServiceOptions[T] {
+	me.Duplicates = fnDuplicates
 	return me
 }
 

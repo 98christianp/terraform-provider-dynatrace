@@ -1,0 +1,8 @@
+{
+    "enabled": true,
+    "exceptionRules": {
+      "ignoreAllExceptions": true,
+      "ignoreSpanFailureDetection": true
+    },
+    "serviceId": "SERVICE-D892CFE7DFAB0D08"
+  }

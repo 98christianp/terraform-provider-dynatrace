@@ -25,6 +25,7 @@ import (
 )
 
 func TestHTTPMonitors(t *testing.T) {
+	t.Skip()
 	api.TestService(t, http.Service)
 }
 

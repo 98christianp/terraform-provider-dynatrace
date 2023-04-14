@@ -32,10 +32,11 @@ type Application struct {
 	Name                             string                         `json:"name"`                                       // The name of the application
 	ApplicationType                  *ApplicationType               `json:"applicationType,omitempty"`                  // The type of the application
 	ApplicationID                    *string                        `json:"applicationId,omitempty"`                    // The UUID of the application.\n\nIt is used only by OneAgent to send data to Dynatrace
-	CostControlUserSessionPercentage *int32                         `json:"costControlUserSessionPercentage,omitempty"` // The percentage of user sessions to be analyzed
+	IconType                         *IconType                      `json:"iconType,omitempty"`                         // Custom application icon. Mobile apps always use the mobile device icon, so this icon can only be set for custom apps.
+	CostControlUserSessionPercentage *int32                         `json:"costControlUserSessionPercentage,omitempty"` // (Field has overlap with `dynatrace_mobile_app_enablement` for mobile and `dynatrace_custom_app_enablement` for custom apps) The percentage of user sessions to be analyzed
 	ApdexSettings                    *MobileCustomApdex             `json:"apdexSettings,omitempty"`
 	OptInModeEnabled                 bool                           `json:"optInModeEnabled,omitempty"`     // The opt-in mode is enabled (`true`) or disabled (`false`).\n\nThis value is only applicable to mobile and not to custom apps
-	SessionReplayEnabled             bool                           `json:"sessionReplayEnabled,omitempty"` // The session replay is enabled (`true`) or disabled (`false`).\nThis value is only applicable to mobile and not to custom apps
+	SessionReplayEnabled             bool                           `json:"sessionReplayEnabled,omitempty"` // (Field has overlap with `dynatrace_mobile_app_enablement`) The session replay is enabled (`true`) or disabled (`false`).\nThis value is only applicable to mobile and not to custom apps
 	SessionReplayOnCrashEnabled      bool                           `json:"sessionReplayOnCrashEnabled"`    // The session replay on crash is enabled (`true`) or disabled (`false`). \n\nEnabling requires both **sessionReplayEnabled** and **optInModeEnabled** values set to `true`.\nAlso, this value is only applicable to mobile and not to custom apps
 	BeaconEndpointType               BeaconEndpointType             `json:"beaconEndpointType"`             // The type of the beacon endpoint
 	BeaconEndpointUrl                *string                        `json:"beaconEndpointUrl,omitempty"`    // The URL of the beacon endpoint.\n\nOnly applicable when the **beaconEndpointType** is set to `ENVIRONMENT_ACTIVE_GATE` or `INSTRUMENTED_WEB_SERVER`
@@ -51,6 +52,9 @@ func (me *Application) UnmarshalHCL(decoder hcl.Decoder) error {
 		return err
 	}
 	if err := decoder.Decode("application_id", &me.ApplicationID); err != nil {
+		return err
+	}
+	if err := decoder.Decode("icon_type", &me.IconType); err != nil {
 		return err
 	}
 	if err := decoder.Decode("user_session_percentage", &me.CostControlUserSessionPercentage); err != nil {
@@ -88,6 +92,7 @@ func (me *Application) MarshalHCL(properties hcl.Properties) error {
 		"name":                    me.Name,
 		"application_id":          me.ApplicationID,
 		"application_type":        me.ApplicationType,
+		"icon_type":               me.IconType,
 		"user_session_percentage": me.CostControlUserSessionPercentage,
 		"opt_in_mode":             me.OptInModeEnabled,
 		"session_replay":          me.SessionReplayEnabled,
@@ -111,15 +116,27 @@ func (me *Application) Schema() map[string]*schema.Schema {
 			Type:        schema.TypeString,
 			Description: "The UUID of the application.\n\nIt is used only by OneAgent to send data to Dynatrace. If not specified it will get generated.",
 			Optional:    true,
+			DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+				if new == "" {
+					return true
+				} else {
+					return false
+				}
+			},
 		},
 		"application_type": {
 			Type:        schema.TypeString,
 			Description: "The type of the application. Either `CUSTOM_APPLICATION` or `MOBILE_APPLICATION`.",
 			Optional:    true,
 		},
+		"icon_type": {
+			Type:        schema.TypeString,
+			Description: "Custom application icon. Mobile apps always use the mobile device icon, so this icon can only be set for custom apps.",
+			Optional:    true,
+		},
 		"user_session_percentage": {
 			Type:        schema.TypeInt,
-			Description: "The percentage of user sessions to be analyzed",
+			Description: "(Field has overlap with `dynatrace_mobile_app_enablement` for mobile and `dynatrace_custom_app_enablement` for custom apps) The percentage of user sessions to be analyzed",
 			Optional:    true,
 		},
 		"opt_in_mode": {
@@ -129,7 +146,7 @@ func (me *Application) Schema() map[string]*schema.Schema {
 		},
 		"session_replay": {
 			Type:        schema.TypeBool,
-			Description: "The session replay is enabled (`true`) or disabled (`false`).",
+			Description: "(Field has overlap with `dynatrace_mobile_app_enablement`) The session replay is enabled (`true`) or disabled (`false`).",
 			Optional:    true,
 		},
 		"session_replay_on_crash": {

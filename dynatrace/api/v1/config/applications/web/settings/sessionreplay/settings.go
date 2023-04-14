@@ -25,32 +25,32 @@ import (
 
 // Settings Session replay settings
 type Settings struct {
-	Enabled                            bool     `json:"enabled"`                            // SessionReplay Enabled
-	CostControlPercentage              int32    `json:"costControlPercentage"`              // Session replay sampling rating in percentage
-	EnableCSSResourceCapturing         bool     `json:"enableCssResourceCapturing"`         // Capture (`true`) or don't capture (`false`) CSS resources from the session
-	CSSResourceCapturingExclusionRules []string `json:"cssResourceCapturingExclusionRules"` // A list of URLs to be excluded from CSS resource capturing
+	Enabled                            bool     `json:"enabled"`                            // (Field has overlap with `dynatrace_web_app_enablement`) SessionReplay Enabled
+	CostControlPercentage              int32    `json:"costControlPercentage"`              // (Field has overlap with `dynatrace_web_app_enablement`) Session replay sampling rating in percentage
+	EnableCSSResourceCapturing         bool     `json:"enableCssResourceCapturing"`         // (Field has overlap with `dynatrace_session_replay_resource_capture`) Capture (`true`) or don't capture (`false`) CSS resources from the session
+	CSSResourceCapturingExclusionRules []string `json:"cssResourceCapturingExclusionRules"` // (Field has overlap with `dynatrace_session_replay_resource_capture`) A list of URLs to be excluded from CSS resource capturing
 }
 
 func (me *Settings) Schema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"enabled": {
 			Type:        schema.TypeBool,
-			Description: "SessionReplay Enabled/Disabled",
+			Description: "(Field has overlap with `dynatrace_web_app_enablement`) SessionReplay Enabled/Disabled",
 			Optional:    true,
 		},
 		"cost_control_percentage": {
 			Type:        schema.TypeInt,
-			Description: "Session replay sampling rating in percent",
+			Description: "(Field has overlap with `dynatrace_web_app_enablement`) Session replay sampling rating in percent",
 			Required:    true,
 		},
 		"enable_css_resource_capturing": {
 			Type:        schema.TypeBool,
-			Description: "Capture (`true`) or don't capture (`false`) CSS resources from the session",
+			Description: "(Field has overlap with `dynatrace_session_replay_resource_capture`) Capture (`true`) or don't capture (`false`) CSS resources from the session",
 			Optional:    true,
 		},
 		"css_resource_capturing_exclusion_rules": {
 			Type:        schema.TypeList,
-			Description: "A list of URLs to be excluded from CSS resource capturing",
+			Description: "(Field has overlap with `dynatrace_session_replay_resource_capture`) A list of URLs to be excluded from CSS resource capturing",
 			Optional:    true,
 			// MinItems: 1,
 			Elem: &schema.Schema{Type: schema.TypeString},

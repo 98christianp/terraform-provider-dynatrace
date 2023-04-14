@@ -1,0 +1,25 @@
+---
+layout: ""
+page_title: "dynatrace_iam_user Data Source - terraform-provider-dynatrace"
+description: |-
+  The data source `dynatrace_iam_user` covers queries for the groups a user is a member of
+---
+
+# dynatrace_iam_user (Data Source)
+
+This data source allows you to specify the email address of the user and produces an ordered list of group IDs this user is a member of
+
+## Example Usage
+
+```terraform
+data "dynatrace_iam_user" "user_a" {
+  email = "me@home.com"
+}
+
+output "groups" {
+  value = data.dynatrace_iam_user.user_a.groups
+}
+
+```
+
+{{ .SchemaMarkdown | trimspace }}

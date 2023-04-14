@@ -169,6 +169,9 @@ func (me *Environment) Finish() (err error) {
 	if err = me.WriteProviderFiles(); err != nil {
 		return err
 	}
+	if err = me.RemoveNonReferencedModules(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -191,6 +194,7 @@ func (me *Environment) Module(resType ResourceType) *Module {
 }
 
 func (me *Environment) CreateFile(name string) (*os.File, error) {
+	os.MkdirAll(me.GetFolder(), os.ModePerm)
 	return os.Create(path.Join(me.GetFolder(), name))
 }
 
@@ -270,6 +274,17 @@ func (me *Environment) WriteResourceFiles() (err error) {
 	for _, module := range me.Modules {
 		if err = module.WriteResourcesFile(); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (me *Environment) RemoveNonReferencedModules() (err error) {
+	for _, module := range me.Modules {
+		if module.IsReferencedAsDataSource() {
+			if err = module.PurgeFolder(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -364,12 +379,18 @@ func (me *Environment) WriteMainFile() error {
 	sort.Strings(sResourceTypes)
 	for _, sResourceType := range sResourceTypes {
 		resourceType := ResourceType(sResourceType)
+		if me.Module(resourceType).IsReferencedAsDataSource() {
+			continue
+		}
 		mainFile.WriteString(fmt.Sprintf("module \"%s\" {\n", resourceType.Trim()))
 		module := me.Module(resourceType)
 		mainFile.WriteString(fmt.Sprintf("  source = \"./%s\"\n", module.GetFolder(true)))
 		referencedResourceTypes := module.GetReferencedResourceTypes()
 		if len(referencedResourceTypes) > 0 {
 			for _, referencedResourceType := range referencedResourceTypes {
+				if me.Module(referencedResourceType).IsReferencedAsDataSource() {
+					continue
+				}
 				if referencedResourceType == resourceType {
 					continue
 				}

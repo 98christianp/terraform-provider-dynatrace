@@ -18,8 +18,8 @@
 package mgmz
 
 import (
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/export"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -36,6 +36,10 @@ func DataSource() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"legacy_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -47,7 +51,7 @@ func DataSourceRead(d *schema.ResourceData, m any) (err error) {
 	}
 
 	service := export.Service(config.Credentials(m), export.ResourceTypes.ManagementZone)
-	var stubs settings.Stubs
+	var stubs api.Stubs
 	if stubs, err = service.List(); err != nil {
 		return err
 	}
@@ -55,6 +59,7 @@ func DataSourceRead(d *schema.ResourceData, m any) (err error) {
 		for _, stub := range stubs {
 			if name == stub.Name {
 				d.SetId(stub.ID)
+				d.Set("legacy_id", stub.ID)
 				if stub.LegacyID != nil {
 					d.Set("settings_20_id", *stub.LegacyID)
 				}

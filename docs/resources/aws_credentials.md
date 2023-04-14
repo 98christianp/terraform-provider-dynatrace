@@ -51,6 +51,7 @@ resource "dynatrace_aws_credentials" "#name#" {
 ### Optional
 
 - `label` (String) The name of the credentials
+- `supporting_services_managed_in_dynatrace` (Boolean) If enabled (`true`) the attribute `supporting_services` will not get synchronized with Dynatrace. You will be able to manage them via WebUI without interference by Terraform.
 - `supporting_services_to_monitor` (Block List) supporting services to be monitored (see [below for nested schema](#nestedblock--supporting_services_to_monitor))
 - `tags_to_monitor` (Block List, Max: 10) AWS tags to be monitored. You can specify up to 10 tags. Only applicable when the **tagged_only** parameter is set to `true` (see [below for nested schema](#nestedblock--tags_to_monitor))
 - `unknowns` (String) Any attributes that aren't yet supported by this provider
@@ -66,10 +67,13 @@ Optional:
 
 - `access_key` (String) the access key
 - `account_id` (String) the ID of the Amazon account
-- `external_id` (String) the external ID token for setting an IAM role. You can obtain it with the `GET /aws/iamExternalId` request
 - `iam_role` (String) the IAM role to be used by Dynatrace to get monitoring data
 - `secret_key` (String, Sensitive) the secret access key
 - `unknowns` (String) Any attributes that aren't yet supported by this provider
+
+Read-Only:
+
+- `external_id` (String) (Read only) the external ID token for setting an IAM role. You can obtain it with the `GET /aws/iamExternalId` request
 
 
 <a id="nestedblock--supporting_services_to_monitor"></a>
@@ -77,7 +81,7 @@ Optional:
 
 Optional:
 
-- `monitored_metrics` (Block List) a list of metrics to be monitored for this service (see [below for nested schema](#nestedblock--supporting_services_to_monitor--monitored_metrics))
+- `monitored_metrics` (Block Set) a list of metrics to be monitored for this service (see [below for nested schema](#nestedblock--supporting_services_to_monitor--monitored_metrics))
 - `name` (String) the name of the supporting service
 - `unknowns` (String) Any attributes that aren't yet supported by this provider
 

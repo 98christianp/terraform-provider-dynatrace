@@ -19,6 +19,7 @@ package export
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/shutdown"
@@ -44,6 +46,16 @@ type Module struct {
 	Error       error
 	Descriptor  *ResourceDescriptor
 	Service     settings.CRUDService[settings.Settings]
+}
+
+func (me *Module) IsReferencedAsDataSource() bool {
+	if !me.Environment.Flags.DataSources {
+		return false
+	}
+	if _, found := me.Environment.ResArgs[string(me.Type)]; found {
+		return false
+	}
+	return me.Type == ResourceTypes.ManagementZoneV2 || me.Type == ResourceTypes.Alerting || me.Type == ResourceTypes.RequestAttribute || me.Type == ResourceTypes.WebApplication || me.Type == ResourceTypes.RequestNaming
 }
 
 func (me *Module) DataSource(id string) *DataSource {
@@ -184,6 +196,9 @@ func (me *Module) CreateFile(name string) (*os.File, error) {
 }
 
 func (me *Module) WriteProviderFile() (err error) {
+	if me.IsReferencedAsDataSource() {
+		return nil
+	}
 	if me.Environment.Flags.Flat {
 		return nil
 	}
@@ -226,6 +241,9 @@ func (me *Module) WriteProviderFile() (err error) {
 }
 
 func (me *Module) WriteVariablesFile() (err error) {
+	if me.IsReferencedAsDataSource() {
+		return nil
+	}
 	if me.Environment.Flags.Flat {
 		return nil
 	}
@@ -254,18 +272,23 @@ func (me *Module) WriteVariablesFile() (err error) {
 		return referencedResourceTypes[i] < referencedResourceTypes[j]
 	})
 	for _, resourceType := range referencedResourceTypes {
-		if _, err = variablesFile.WriteString(fmt.Sprintf(`variable "%s" {
-			type = any
-		}
-		
-		`, resourceType)); err != nil {
-			return err
+		if !me.Environment.Module(resourceType).IsReferencedAsDataSource() {
+			if _, err = variablesFile.WriteString(fmt.Sprintf(`variable "%s" {
+				type = any
+			}
+			
+			`, resourceType)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func (me *Module) WriteDataSourcesFile() (err error) {
+	if me.IsReferencedAsDataSource() {
+		return nil
+	}
 	if me.Environment.Flags.Flat {
 		return nil
 	}
@@ -273,6 +296,17 @@ func (me *Module) WriteDataSourcesFile() (err error) {
 	var datasourcesFile *os.File
 	if datasourcesFile, err = me.CreateFile("___datasources___.tf"); err != nil {
 		return err
+	}
+	dsm := map[string]string{}
+	for _, v := range me.Resources {
+		for _, referencedResource := range v.ResourceReferences {
+			if asDS := AsDataSource(referencedResource); len(asDS) > 0 {
+				dsm[asDS] = asDS
+			}
+		}
+	}
+	for ds := range dsm {
+		datasourcesFile.Write([]byte("\n" + ds))
 	}
 	defer func() {
 		datasourcesFile.Close()
@@ -285,18 +319,33 @@ func (me *Module) WriteDataSourcesFile() (err error) {
 	sort.Strings(dataSourceIDs)
 	for _, dataSourceID := range dataSourceIDs {
 		dataSource := me.DataSources[dataSourceID]
-		if _, err = datasourcesFile.WriteString(fmt.Sprintf(`data "dynatrace_entity" "%s" {
+		dataSourceName := dataSource.Name
+		dd, _ := json.Marshal(dataSourceName)
+		if _, err = datasourcesFile.WriteString(fmt.Sprintf(`
+		data "dynatrace_entity" "%s" {
 			type = "%s"
-			name = "%s"				
-		}
-`, dataSourceID, dataSource.Type, dataSource.Name)); err != nil {
+			name = %s
+		}`, dataSourceID, dataSource.Type, string(dd))); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func (me *Module) PurgeFolder() (err error) {
+	if err = os.RemoveAll(me.GetFolder()); err != nil {
+		return err
+	}
+	if err = os.RemoveAll(me.GetAttentionFolder()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (me *Module) WriteResourcesFile() (err error) {
+	if me.IsReferencedAsDataSource() {
+		return nil
+	}
 	if me.Environment.Flags.Flat {
 		return nil
 	}
@@ -478,7 +527,7 @@ func (me *Module) Discover() error {
 
 	var err error
 
-	var stubs settings.Stubs
+	var stubs api.Stubs
 	// log.Println("Discovering \"" + me.Type + "\" ...")
 	if stubs, err = me.Service.List(); err != nil {
 		if strings.Contains(err.Error(), "Token is missing required scope") {
@@ -543,7 +592,7 @@ func (me *Module) ExecuteImport() (err error) {
 		if me.Environment.Flags.Flat {
 			statement = fmt.Sprintf("%s.%s", me.Type, resource.UniqueName)
 		}
-		// log.Println("terraform", "import", statement, resource.ID)
+		// fmt.Println("terraform", "import", statement, resource.ID, me.Environment.OutputFolder)
 		cmd := exec.Command(
 			exePath,
 			"import",
@@ -567,9 +616,9 @@ func (me *Module) ExecuteImport() (err error) {
 			"DYNATRACE_API_TOKEN=" + me.Environment.Credentials.Token,
 			"DT_CACHE_FOLDER=" + cacheFolder,
 			"CACHE_OFFLINE_MODE=true",
-			"DELETE_CACHE_ON_LAUNCH=false",
+			"DT_CACHE_DELETE_ON_LAUNCH=false",
+			"DT_NO_CACHE_CLEANUP=true",
 			"DT_TERRAFORM_IMPORT=true",
-			"DT_REST_DEBUG_REQUESTS=terraform-provider-dynatrace.http.log",
 		}
 		cmd.Start()
 		if err := cmd.Wait(); err != nil {

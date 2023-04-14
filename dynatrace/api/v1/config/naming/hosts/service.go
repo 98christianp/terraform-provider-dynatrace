@@ -18,6 +18,9 @@
 package hosts
 
 import (
+	"fmt"
+
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 
 	hosts "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/naming/hosts/settings"
@@ -30,6 +33,33 @@ func Service(credentials *settings.Credentials) settings.CRUDService[*hosts.Nami
 	return settings.NewCRUDService(
 		credentials,
 		SchemaID,
-		settings.DefaultServiceOptions[*hosts.NamingRule](BasePath),
+		settings.DefaultServiceOptions[*hosts.NamingRule](BasePath).WithDuplicates(Duplicates),
 	)
+}
+
+func Duplicates(service settings.RService[*hosts.NamingRule], v *hosts.NamingRule) (*api.Stub, error) {
+	if settings.RejectDuplicate("dynatrace_host_naming") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return nil, fmt.Errorf("A Host Naming Rule named '%s' already exists", v.Name)
+			}
+		}
+	} else if settings.HijackDuplicate("dynatrace_host_naming") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return stub, nil
+			}
+		}
+	}
+	return nil, nil
 }

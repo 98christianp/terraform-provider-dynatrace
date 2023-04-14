@@ -20,9 +20,14 @@ package settings20
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
+	"time"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/httpcache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/shutdown"
 
 	"net/url"
@@ -36,7 +41,7 @@ func Service[T settings.Settings](credentials *settings.Credentials, schemaID st
 	return &service[T]{
 		schemaID: schemaID,
 		// schemaVersion: schemaVersion,
-		client:  rest.DefaultClient(credentials.URL, credentials.Token),
+		client:  httpcache.DefaultClient(credentials.URL, credentials.Token, schemaID),
 		options: opts,
 	}
 }
@@ -83,9 +88,7 @@ func (me *service[T]) Get(id string, v T) error {
 	if err = json.Unmarshal(settingsObject.Value, v); err != nil {
 		return err
 	}
-	if scopeAware, ok := any(v).(ScopeAware); ok {
-		scopeAware.SetScope(settingsObject.Scope)
-	}
+	settings.SetScope(v, settingsObject.Scope)
 	if me.options != nil && me.options.LegacyID != nil {
 		settings.SetLegacyID(id, me.options.LegacyID, v)
 	}
@@ -93,10 +96,10 @@ func (me *service[T]) Get(id string, v T) error {
 	return nil
 }
 
-func (me *service[T]) List() (settings.Stubs, error) {
+func (me *service[T]) List() (api.Stubs, error) {
 	var err error
 
-	stubs := settings.Stubs{}
+	stubs := api.Stubs{}
 	nextPage := true
 
 	var nextPageKey *string
@@ -125,18 +128,16 @@ func (me *service[T]) List() (settings.Stubs, error) {
 				if me.options != nil && me.options.LegacyID != nil {
 					settings.SetLegacyID(item.ObjectID, me.options.LegacyID, newItem)
 				}
-				if scopeAware, ok := any(newItem).(ScopeAware); ok {
-					scopeAware.SetScope(item.Scope)
-				}
+				settings.SetScope(newItem, item.Scope)
 				var itemName string
 				if me.options != nil && me.options.Name != nil {
 					if itemName, err = me.options.Name(item.ObjectID, newItem); err != nil {
-						itemName = settings.Name(newItem)
+						itemName = settings.Name(newItem, item.ObjectID)
 					}
 				} else {
-					itemName = settings.Name(newItem)
+					itemName = settings.Name(newItem, item.ObjectID)
 				}
-				stub := &settings.Stub{ID: item.ObjectID, Name: itemName, Value: newItem, LegacyID: settings.GetLegacyID(newItem)}
+				stub := &api.Stub{ID: item.ObjectID, Name: itemName, Value: newItem, LegacyID: settings.GetLegacyID(newItem)}
 				if len(itemName) > 0 {
 					stubs = append(stubs, stub)
 				}
@@ -153,32 +154,75 @@ func (me *service[T]) Validate(v T) error {
 	return nil // Settings 2.0 doesn't offer validation
 }
 
-func (me *service[T]) Create(v T) (*settings.Stub, error) {
+func (me *service[T]) Create(v T) (*api.Stub, error) {
 	return me.create(v, false)
 }
 
-func (me *service[T]) create(v T, retry bool) (*settings.Stub, error) {
+type Matcher interface {
+	Match(o any) bool
+}
+
+func (me *service[T]) create(v T, retry bool) (*api.Stub, error) {
+
+	if me.options != nil && me.options.Duplicates != nil {
+		dupStub, dupErr := me.options.Duplicates(me, v)
+		if dupErr != nil {
+			return nil, dupErr
+		}
+		if dupStub != nil {
+			return dupStub, nil
+		}
+	}
+
+	// Special handling for settings with a method named Match(v any) bool
+	// It signals that instead of creating a new record the existing ones on the remote
+	// should be investigated - and if a match exists the original state should get persisted
+	// Upon delete that original state will get reconstructed
+	// Note: Such settings also need to contain a field named `RestoreOnDelete` of type `*string`
+	if matcher, ok := any(v).(Matcher); ok {
+		var stubs api.Stubs
+		var err error
+		if stubs, err = me.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if stub == nil {
+				continue
+			}
+			if stub.Value == nil {
+				continue
+			}
+			if matcher.Match(stub.Value) {
+				data, je := json.Marshal(stub.Value)
+				if je != nil {
+					break
+				}
+				asjson := string(data)
+				settings.SetRestoreOnDelete(asjson, v)
+				stub.Value = v
+				return stub, me.Update(stub.ID, v)
+			}
+		}
+	}
 	soc := SettingsObjectCreate{
 		SchemaID:      me.schemaID,
 		SchemaVersion: me.schemaVersion,
 		Scope:         "environment",
 		Value:         v,
 	}
-	if scopeAware, ok := any(v).(ScopeAware); ok {
-		soc.Scope = scopeAware.GetScope()
-	}
+	soc.Scope = settings.GetScope(v)
 
 	req := me.client.Post("/api/v2/settings/objects", []SettingsObjectCreate{soc}).Expect(200)
 	objectID := []SettingsObjectCreateResponse{}
 
 	if oerr := req.Finish(&objectID); oerr != nil {
 		if me.options != nil && me.options.CreateRetry != nil && !retry {
-			if modifiedPayload := me.options.CreateRetry(v, oerr); (any)(modifiedPayload) != (any)(nil) {
+			if modifiedPayload := me.options.CreateRetry(v, oerr); !reflect.ValueOf(modifiedPayload).IsNil() {
 				return me.create(modifiedPayload, true)
 			}
 		}
 		if me.options != nil && me.options.HijackOnCreate != nil {
-			var hijackedStub *settings.Stub
+			var hijackedStub *api.Stub
 			var hierr error
 			if hijackedStub, hierr = me.options.HijackOnCreate(oerr, me, v); hierr != nil {
 				return nil, hierr
@@ -191,8 +235,8 @@ func (me *service[T]) create(v T, retry bool) (*settings.Stub, error) {
 		}
 		return nil, oerr
 	}
-	itemName := settings.Name(v)
-	stub := &settings.Stub{ID: objectID[0].ObjectID, Name: itemName}
+	itemName := settings.Name(v, objectID[0].ObjectID)
+	stub := &api.Stub{ID: objectID[0].ObjectID, Name: itemName}
 	return stub, nil
 }
 
@@ -214,7 +258,23 @@ func (me *service[T]) update(id string, v T, retry bool) error {
 }
 
 func (me *service[T]) Delete(id string) error {
-	return me.client.Delete(fmt.Sprintf("/api/v2/settings/objects/%s", url.PathEscape(id)), 204).Finish()
+	return me.delete(id, 0)
+}
+
+func (me *service[T]) delete(id string, numRetries int) error {
+	err := me.client.Delete(fmt.Sprintf("/api/v2/settings/objects/%s", url.PathEscape(id)), 204).Finish()
+	if err != nil && strings.Contains(err.Error(), "Deletion of value(s) is not allowed") {
+		return nil
+	}
+	if err != nil && strings.Contains(err.Error(), "Internal Server Error occurred") {
+		if numRetries == 10 {
+			return err
+		}
+		time.Sleep(6 * time.Second)
+		return me.delete(id, numRetries+1)
+	}
+	return err
+
 }
 
 func (me *service[T]) Name() string {

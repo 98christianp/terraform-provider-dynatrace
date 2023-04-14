@@ -22,7 +22,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
+	"github.com/google/uuid"
 )
 
 type Mode byte
@@ -66,7 +67,7 @@ func GetCacheFolder() string {
 }
 
 func getCacheRootFolder() string {
-	folder := path.Join(os.TempDir(), ".terraform-provider-dynatrace")
+	folder := path.Join(os.TempDir(), ".terraform-provider-dynatrace", uuid.NewString())
 	if envFolder := os.Getenv(ENV_VAR_CACHE_ROOT_FOLDER); envFolder != "" {
 		folder = envFolder
 	}
@@ -81,13 +82,13 @@ func getCacheRootFolder() string {
 }
 
 type stubIndex struct {
-	Complete bool                      `json:"complete"`
-	Stubs    settings.Stubs            `json:"stubs"`
-	IDs      map[string]*settings.Stub `json:"-"`
+	Complete bool                 `json:"complete"`
+	Stubs    api.Stubs            `json:"stubs"`
+	IDs      map[string]*api.Stub `json:"-"`
 }
 
 func (me *stubIndex) Remove(id string) *stubIndex {
-	var result settings.Stubs
+	var result api.Stubs
 	for _, stub := range me.Stubs {
 		if stub.ID != id {
 			result = append(result, stub)
@@ -104,10 +105,10 @@ func (me *stubIndex) Add(id string, name string) *stubIndex {
 			return me
 		}
 	}
-	stub := &settings.Stub{ID: id, Name: name}
+	stub := &api.Stub{ID: id, Name: name}
 	me.Stubs = append(me.Stubs, stub)
 	if me.IDs == nil {
-		me.IDs = map[string]*settings.Stub{}
+		me.IDs = map[string]*api.Stub{}
 	}
 	me.IDs[id] = stub
 	return me

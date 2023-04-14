@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/httpcache"
 
 	customservices "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/customservices/settings"
 )
@@ -35,12 +37,23 @@ type service struct {
 }
 
 func Service(credentials *settings.Credentials) settings.CRUDService[*customservices.CustomService] {
-	return &service{client: rest.DefaultClient(credentials.URL, credentials.Token)}
+	return &service{client: httpcache.DefaultClient(credentials.URL, credentials.Token, SchemaID)}
 }
 
 func (me *service) Get(id string, v *customservices.CustomService) error {
 	if id, technology, ok := settings.SplitID(id); ok {
 		return me.GetWithTechnology(id, technology, v)
+	}
+	for _, technology := range []customservices.Technology{customservices.Technologies.DotNet, customservices.Technologies.Go, customservices.Technologies.Java, customservices.Technologies.NodeJS, customservices.Technologies.PHP} {
+		if err := me.GetWithTechnology(id, string(technology), v); err != nil {
+			if restError, ok := err.(rest.Error); ok {
+				if restError.Code != 404 {
+					return err
+				}
+			}
+		} else {
+			return nil
+		}
 	}
 	return errors.New("unable to determine technology")
 }
@@ -54,14 +67,14 @@ func (me *service) GetWithTechnology(id string, technology string, v *customserv
 	return nil
 }
 
-func (me *service) List() (settings.Stubs, error) {
+func (me *service) List() (api.Stubs, error) {
 	var err error
-	var stubs settings.Stubs
+	var stubs api.Stubs
 	client := me.client
 
 	for _, technology := range []customservices.Technology{customservices.Technologies.NodeJS, customservices.Technologies.DotNet, customservices.Technologies.Go, customservices.Technologies.Java, customservices.Technologies.PHP} {
 		req := client.Get(fmt.Sprintf("/api/config/v1/service/customServices/%s", url.PathEscape(string(technology))), 200)
-		var stubList settings.StubList
+		var stubList api.StubList
 		if err = req.Finish(&stubList); err != nil {
 			return nil, err
 		}
@@ -81,16 +94,16 @@ func (me *service) ValidateWithTechnology(technology string, v any) error {
 	return me.client.Post(fmt.Sprintf("/api/config/v1/service/customServices/%s/validator", url.PathEscape(technology)), v, 204).Finish()
 }
 
-func (me *service) Create(v *customservices.CustomService) (*settings.Stub, error) {
+func (me *service) Create(v *customservices.CustomService) (*api.Stub, error) {
 	return me.CreateWithTechnology(string(v.Technology), v)
 }
 
-func (me *service) CreateWithTechnology(technology string, v any) (*settings.Stub, error) {
+func (me *service) CreateWithTechnology(technology string, v any) (*api.Stub, error) {
 	var err error
 
 	req := me.client.Post(fmt.Sprintf("/api/config/v1/service/customServices/%s", url.PathEscape(technology)), v, 201)
 
-	var stub settings.Stub
+	var stub api.Stub
 	if err = req.Finish(&stub); err != nil {
 		return nil, err
 	}
@@ -120,6 +133,17 @@ func (me *service) Delete(id string) error {
 	if id, technology, ok := settings.SplitID(id); ok {
 		return me.DeleteWithTechnology(id, technology)
 	}
+	for _, technology := range []customservices.Technology{customservices.Technologies.DotNet, customservices.Technologies.Go, customservices.Technologies.Java, customservices.Technologies.NodeJS, customservices.Technologies.PHP} {
+		if err := me.DeleteWithTechnology(id, string(technology)); err != nil {
+			if restError, ok := err.(rest.Error); ok {
+				if restError.Code != 404 {
+					return err
+				}
+			}
+		} else {
+			return nil
+		}
+	}
 	return errors.New("unable to determine technology")
 }
 
@@ -128,5 +152,9 @@ func (me *service) DeleteWithTechnology(id string, technology string) error {
 }
 
 func (me *service) SchemaID() string {
+	return SchemaID
+}
+
+func (me *service) Name() string {
 	return SchemaID
 }

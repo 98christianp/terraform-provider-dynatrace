@@ -18,6 +18,9 @@
 package maintenance
 
 import (
+	"fmt"
+
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	maintenance "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/maintenance/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/settings20"
@@ -27,5 +30,32 @@ const SchemaID = "builtin:alerting.maintenance-window"
 const SchemaVersion = "2.14.1"
 
 func Service(credentials *settings.Credentials) settings.CRUDService[*maintenance.MaintenanceWindow] {
-	return settings20.Service(credentials, SchemaID, SchemaVersion, &settings20.ServiceOptions[*maintenance.MaintenanceWindow]{LegacyID: settings.LegacyObjIDDecode})
+	return settings20.Service(credentials, SchemaID, SchemaVersion, &settings20.ServiceOptions[*maintenance.MaintenanceWindow]{LegacyID: settings.LegacyObjIDDecode, Duplicates: Duplicates})
+}
+
+func Duplicates(service settings.RService[*maintenance.MaintenanceWindow], v *maintenance.MaintenanceWindow) (*api.Stub, error) {
+	if settings.RejectDuplicate("dynatrace_maintenance") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.GeneralProperties != nil && v.GeneralProperties.Name == stub.Name {
+				return nil, fmt.Errorf("Maintenance Window named '%s' already exists", v.GeneralProperties.Name)
+			}
+		}
+	} else if settings.HijackDuplicate("dynatrace_maintenance") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.GeneralProperties != nil && v.GeneralProperties.Name == stub.Name {
+				return stub, nil
+			}
+		}
+	}
+	return nil, nil
 }

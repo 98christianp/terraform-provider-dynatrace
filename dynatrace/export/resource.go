@@ -46,10 +46,19 @@ type Resource struct {
 	Flawed               bool
 }
 
+func (me *Resource) IsReferencedAsDataSource() bool {
+	return me.Module.IsReferencedAsDataSource()
+}
+
 func (me *Resource) SetName(name string) *Resource {
+	if me.Name == name {
+		return me
+	}
 	me.Name = name
 	terraformName := toTerraformName(name)
-	me.UniqueName = me.Module.namer.Name(terraformName)
+	if terraformName != me.UniqueName {
+		me.UniqueName = me.Module.namer.Name(terraformName)
+	}
 	me.Status = ResourceStati.Discovered
 	return me
 }
@@ -108,9 +117,6 @@ func (me *Resource) GetFileName() string {
 }
 
 func (me *Resource) GetFile() string {
-	if me.Flawed {
-		return path.Join(me.Module.GetFlawedFolder(), me.GetFileName())
-	}
 	return path.Join(me.Module.GetFolder(), me.GetFileName())
 }
 
@@ -118,11 +124,8 @@ func (me *Resource) GetAttentionFile() string {
 	return path.Join(me.Module.GetAttentionFolder(false), me.GetFileName())
 }
 
-func (me *Resource) CreateFlawedFile() (*os.File, error) {
-	flawedFile := path.Join(me.Module.GetFlawedFolder(false), me.GetFileName())
-	absdir, _ := filepath.Abs(path.Dir(flawedFile))
-	os.MkdirAll(absdir, os.ModePerm)
-	return os.Create(flawedFile)
+func (me *Resource) GetFlawedFile() string {
+	return path.Join(me.Module.GetFlawedFolder(false), me.GetFileName())
 }
 
 func (me *Resource) Download() error {
@@ -175,6 +178,7 @@ func (me *Resource) Download() error {
 		}
 		return err
 	}
+	me.SetName(settings.Name(settngs, me.ID))
 	legacyID := settings.GetLegacyID(settngs)
 	if legacyID != nil {
 		me.LegacyID = *legacyID
@@ -225,6 +229,13 @@ func (me *Resource) Download() error {
 		os.MkdirAll(absdir, os.ModePerm)
 		os.Link(orig, att)
 	}
+	if me.Flawed && me.Status != ResourceStati.Erronous {
+		orig, _ := filepath.Abs(me.GetFile())
+		att, _ := filepath.Abs(me.GetFlawedFile())
+		absdir, _ := filepath.Abs(path.Dir(me.GetFlawedFile()))
+		os.MkdirAll(absdir, os.ModePerm)
+		os.Link(orig, att)
+	}
 	if me.Status != ResourceStati.Erronous {
 		me.Status = ResourceStati.Downloaded
 	}
@@ -246,6 +257,9 @@ func (me *Resource) PostProcess() error {
 		}
 	}
 	me.Status = ResourceStati.PostProcessed
+	if me.IsReferencedAsDataSource() {
+		return nil
+	}
 	if !me.Module.Environment.Flags.FollowReferences {
 		return nil
 	}

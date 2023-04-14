@@ -18,17 +18,18 @@
 package metricevents
 
 import (
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/opt"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/terraform/hcl"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 type EventTemplate struct {
-	Title       string          `json:"title"`              // The title of the event to trigger.
-	Description string          `json:"description"`        // The description of the event to trigger.
-	EventType   EventTypeEnum   `json:"eventType"`          // The event type to trigger.
-	DavisMerge  bool            `json:"davisMerge"`         // Davis® AI will try to merge this event into existing problems, otherwise a new problem will always be created.
-	Metadata    []*MetadataItem `json:"metadata,omitempty"` // Set of additional key-value properties to be attached to the triggered event.
+	Title       string          `json:"title"`                // The title of the event to trigger.
+	Description string          `json:"description"`          // The description of the event to trigger.
+	EventType   EventTypeEnum   `json:"eventType"`            // The event type to trigger.
+	DavisMerge  *bool           `json:"davisMerge,omitempty"` // Davis® AI will try to merge this event into existing problems, otherwise a new problem will always be created.
+	Metadata    []*MetadataItem `json:"metadata,omitempty"`   // Set of additional key-value properties to be attached to the triggered event.
 }
 
 func (me *EventTemplate) Schema() map[string]*schema.Schema {
@@ -65,21 +66,28 @@ func (me *EventTemplate) Schema() map[string]*schema.Schema {
 }
 
 func (me *EventTemplate) MarshalHCL(properties hcl.Properties) error {
-	return properties.EncodeAll(map[string]any{
+	if err := properties.EncodeAll(map[string]any{
 		"title":       me.Title,
 		"description": me.Description,
 		"event_type":  me.EventType,
 		"davis_merge": me.DavisMerge,
-		"metadata":    me.Metadata,
-	})
+	}); err != nil {
+		return err
+	}
+	return properties.EncodeSlice("metadata", me.Metadata)
 }
 
 func (me *EventTemplate) UnmarshalHCL(decoder hcl.Decoder) error {
-	return decoder.DecodeAll(map[string]any{
+	if err := decoder.DecodeAll(map[string]any{
 		"title":       &me.Title,
 		"description": &me.Description,
 		"event_type":  &me.EventType,
 		"davis_merge": &me.DavisMerge,
-		"metadata":    &me.Metadata,
-	})
+	}); err != nil {
+		return err
+	}
+	if me.DavisMerge == nil && me.EventType != EventTypeEnums.Info {
+		me.DavisMerge = opt.NewBool(false)
+	}
+	return decoder.DecodeSlice("metadata", &me.Metadata)
 }

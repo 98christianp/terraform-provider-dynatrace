@@ -1,0 +1,7 @@
+{
+    "globalConsecutiveOutageCountThreshold": 1,
+    "globalOutages": true,
+    "localOutages": false,
+    "retryOnError": true,
+    "scope": "SYNTHETIC_TEST-1234567890000000"
+}

@@ -18,6 +18,9 @@
 package alerting
 
 import (
+	"fmt"
+
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	alerting "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/alerting/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/settings20"
@@ -27,5 +30,32 @@ const SchemaID = "builtin:alerting.profile"
 const SchemaVersion = "8.0.1"
 
 func Service(credentials *settings.Credentials) settings.CRUDService[*alerting.Profile] {
-	return settings20.Service(credentials, SchemaID, SchemaVersion, &settings20.ServiceOptions[*alerting.Profile]{LegacyID: settings.LegacyObjIDDecode})
+	return settings20.Service(credentials, SchemaID, SchemaVersion, &settings20.ServiceOptions[*alerting.Profile]{LegacyID: settings.LegacyObjIDDecode, Duplicates: Duplicates})
+}
+
+func Duplicates(service settings.RService[*alerting.Profile], v *alerting.Profile) (*api.Stub, error) {
+	if settings.RejectDuplicate("dynatrace_alerting", "dynatrace_alerting_profile") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return nil, fmt.Errorf("An alerting profile named '%s' already exists", v.Name)
+			}
+		}
+	} else if settings.HijackDuplicate("dynatrace_alerting", "dynatrace_alerting_profile") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return stub, nil
+			}
+		}
+	}
+	return nil, nil
 }

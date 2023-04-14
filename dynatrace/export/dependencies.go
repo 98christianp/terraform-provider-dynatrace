@@ -19,6 +19,7 @@ package export
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -38,27 +39,49 @@ func Coalesce(d Dependency) Dependency {
 }
 
 var Dependencies = struct {
-	ManagementZone       Dependency
-	LegacyID             func(resourceType ResourceType) Dependency
-	ID                   func(resourceType ResourceType) Dependency
-	ServiceMethod        Dependency
-	Service              Dependency
-	HostGroup            Dependency
-	Host                 Dependency
-	ProcessGroup         Dependency
-	ProcessGroupInstance Dependency
-	RequestAttribute     Dependency
+	ManagementZone            Dependency
+	LegacyID                  func(resourceType ResourceType) Dependency
+	ID                        func(resourceType ResourceType) Dependency
+	ServiceMethod             Dependency
+	Service                   Dependency
+	HostGroup                 Dependency
+	Host                      Dependency
+	Disk                      Dependency
+	ProcessGroup              Dependency
+	ProcessGroupInstance      Dependency
+	RequestAttribute          Dependency
+	CustomApplication         Dependency
+	MobileApplication         Dependency
+	DeviceApplicationMethod   Dependency
+	Application               Dependency
+	ApplicationMethod         Dependency
+	SyntheticTest             Dependency
+	HttpCheck                 Dependency
+	K8sCluster                Dependency
+	CloudApplicationNamespace Dependency
+	EnvironmentActiveGate     Dependency
 }{
-	ManagementZone:       &mgmzdep{ResourceTypes.ManagementZoneV2},
-	LegacyID:             func(resourceType ResourceType) Dependency { return &legacyID{resourceType} },
-	ID:                   func(resourceType ResourceType) Dependency { return &iddep{resourceType} },
-	ServiceMethod:        &entityds{"SERVICE_METHOD", "SERVICE_METHOD-[A-Z0-9]{16}", false},
-	Service:              &entityds{"SERVICE", "SERVICE-[A-Z0-9]{16}", false},
-	HostGroup:            &entityds{"HOST_GROUP", "HOST_GROUP-[A-Z0-9]{16}", false},
-	Host:                 &entityds{"HOST", "HOST-[A-Z0-9]{16}", false},
-	ProcessGroup:         &entityds{"PROCESS_GROUP", "PROCESS_GROUP-[A-Z0-9]{16}", false},
-	ProcessGroupInstance: &entityds{"PROCESS_GROUP_INSTANCE", "PROCESS_GROUP_INSTANCE-[A-Z0-9]{16}", false},
-	RequestAttribute:     &reqAttName{ResourceTypes.RequestAttribute},
+	ManagementZone:            &mgmzdep{ResourceTypes.ManagementZoneV2},
+	LegacyID:                  func(resourceType ResourceType) Dependency { return &legacyID{resourceType} },
+	ID:                        func(resourceType ResourceType) Dependency { return &iddep{resourceType} },
+	ServiceMethod:             &entityds{"SERVICE_METHOD", "SERVICE_METHOD-[A-Z0-9]{16}", false},
+	Service:                   &entityds{"SERVICE", "SERVICE-[A-Z0-9]{16}", false},
+	HostGroup:                 &entityds{"HOST_GROUP", "HOST_GROUP-[A-Z0-9]{16}", false},
+	Host:                      &entityds{"HOST", "HOST-[A-Z0-9]{16}", false},
+	Disk:                      &entityds{"DISK", "DISK-[A-Z0-9]{16}", false},
+	ProcessGroup:              &entityds{"PROCESS_GROUP", "PROCESS_GROUP-[A-Z0-9]{16}", false},
+	ProcessGroupInstance:      &entityds{"PROCESS_GROUP_INSTANCE", "PROCESS_GROUP_INSTANCE-[A-Z0-9]{16}", false},
+	RequestAttribute:          &reqAttName{ResourceTypes.RequestAttribute},
+	CustomApplication:         &entityds{"CUSTOM_APPLICATION", "CUSTOM_APPLICATION-[A-Z0-9]{16}", false},
+	MobileApplication:         &entityds{"MOBILE_APPLICATION", "MOBILE_APPLICATION-[A-Z0-9]{16}", false},
+	DeviceApplicationMethod:   &entityds{"DEVICE_APPLICATION_METHOD", "DEVICE_APPLICATION_METHOD-[A-Z0-9]{16}", false},
+	Application:               &entityds{"APPLICATION", "APPLICATION-[A-Z0-9]{16}", false},
+	ApplicationMethod:         &entityds{"APPLICATION_METHOD", "APPLICATION_METHOD-[A-Z0-9]{16}", false},
+	SyntheticTest:             &entityds{"SYNTHETIC_TEST", "SYNTHETIC_TEST-[A-Z0-9]{16}", false},
+	HttpCheck:                 &entityds{"HTTP_CHECK", "HTTP_CHECK-[A-Z0-9]{16}", false},
+	K8sCluster:                &entityds{"KUBERNETES_CLUSTER", "KUBERNETES_CLUSTER-[A-Z0-9]{16}", false},
+	CloudApplicationNamespace: &entityds{"CLOUD_APPLICATION_NAMESPACE", "CLOUD_APPLICATION_NAMESPACE-[A-Z0-9]{16}", false},
+	EnvironmentActiveGate:     &entityds{"ENVIRONMENT_ACTIVE_GATE", "ENVIRONMENT_ACTIVE_GATE-[A-Z0-9]{16}", false},
 }
 
 type mgmzdep struct {
@@ -84,21 +107,39 @@ func (me *mgmzdep) Replace(environment *Environment, s string, replacingIn Resou
 			continue
 		}
 		found := false
+		resOrDsType := func() string {
+			return string(me.resourceType)
+		}
+
+		if resource.IsReferencedAsDataSource() {
+			resOrDsType = func() string {
+				return string(me.resourceType.AsDataSource())
+			}
+			replacePattern = "${data.%s.%s.name}"
+			if environment.Flags.Flat {
+				replacePattern = "${data.%s.%s.name}"
+			}
+		} else {
+			replacePattern = "${var.%s.%s.name}"
+			if environment.Flags.Flat {
+				replacePattern = "${%s.%s.name}"
+			}
+		}
 
 		m1 := regexp.MustCompile(fmt.Sprintf(`"managementZone": {([\S\s]*)"name":(.*)"%s"([\S\s]*)}`, resource.Name))
-		replaced := m1.ReplaceAllString(s, fmt.Sprintf(`"managementZone": {$1"name":$2"%s"$3}`, fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName)))
+		replaced := m1.ReplaceAllString(s, fmt.Sprintf(`"managementZone": {$1"name":$2"%s"$3}`, fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName)))
 		if replaced != s {
 			s = replaced
 			found = true
 		}
 		m1 = regexp.MustCompile(fmt.Sprintf(`management_zones = \[(.*)\"%s\"(.*)\]`, resource.Name))
-		replaced = m1.ReplaceAllString(replaced, fmt.Sprintf(`management_zones = [ $1"%s"$2 ]`, fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName)))
+		replaced = m1.ReplaceAllString(replaced, fmt.Sprintf(`management_zones = [ $1"%s"$2 ]`, fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName)))
 		if replaced != s {
 			s = replaced
 			found = true
 		}
 		m1 = regexp.MustCompile(fmt.Sprintf(`mzName\((.*)"%s"(.*)\)`, resource.Name))
-		replaced = m1.ReplaceAllString(replaced, fmt.Sprintf(`mzName($1"%s"$2)`, fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName)))
+		replaced = m1.ReplaceAllString(replaced, fmt.Sprintf(`mzName($1"%s"$2)`, fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName)))
 		if replaced != s {
 			s = replaced
 			found = true
@@ -129,10 +170,27 @@ func (me *legacyID) Replace(environment *Environment, s string, replacingIn Reso
 	}
 	resources := []any{}
 	for _, resource := range environment.Module(me.resourceType).Resources {
+		resOrDsType := func() string {
+			return string(me.resourceType)
+		}
+		if resource.IsReferencedAsDataSource() {
+			resOrDsType = func() string {
+				return string(me.resourceType.AsDataSource())
+			}
+			replacePattern = "${data.%s.%s.legacy_id}"
+			if environment.Flags.Flat {
+				replacePattern = "${data.%s.%s.legacy_id}"
+			}
+		} else {
+			replacePattern = "${var.%s.%s.legacy_id}"
+			if environment.Flags.Flat {
+				replacePattern = "${%s.%s.legacy_id}"
+			}
+		}
 		if len(resource.LegacyID) > 0 {
 			found := false
 			if strings.Contains(s, resource.LegacyID) {
-				s = strings.ReplaceAll(s, resource.LegacyID, fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName))
+				s = strings.ReplaceAll(s, resource.LegacyID, fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName))
 				found = true
 			}
 			if found {
@@ -162,12 +220,30 @@ func (me *iddep) Replace(environment *Environment, s string, replacingIn Resourc
 	}
 	resources := []any{}
 	for id, resource := range environment.Module(me.resourceType).Resources {
+		resOrDsType := func() string {
+			return string(me.resourceType)
+		}
 		if resource.Type == replacingIn {
 			replacePattern = "${%s.%s.id}"
+		} else {
+			if resource.IsReferencedAsDataSource() {
+				resOrDsType = func() string {
+					return string(me.resourceType.AsDataSource())
+				}
+				replacePattern = "${data.%s.%s.id}"
+				if environment.Flags.Flat {
+					replacePattern = "${data.%s.%s.id}"
+				}
+			} else {
+				replacePattern = "${var.%s.%s.id}"
+				if environment.Flags.Flat {
+					replacePattern = "${%s.%s.id}"
+				}
+			}
 		}
 		found := false
 		if strings.Contains(s, id) {
-			s = strings.ReplaceAll(s, id, fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName))
+			s = strings.ReplaceAll(s, id, fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName))
 			found = true
 		}
 		if found {
@@ -192,6 +268,11 @@ func (me *entityds) DataSourceType() DataSourceType {
 }
 
 func (me *entityds) Replace(environment *Environment, s string, replacingIn ResourceType) (string, []any) {
+	// when running on HTTP Cache no data sources should get replaced
+	// The IDs of these entities are guaranteed to match existing ones
+	if len(os.Getenv("DYNATRACE_MIGRATION_CACHE_FOLDER")) > 0 {
+		return s, []any{}
+	}
 	found := false
 	m1 := regexp.MustCompile(me.Pattern)
 	s = m1.ReplaceAllStringFunc(s, func(id string) string {
@@ -231,15 +312,36 @@ func (me *reqAttName) Replace(environment *Environment, s string, replacingIn Re
 	}
 	resources := []any{}
 	for _, resource := range environment.Module(me.resourceType).Resources {
+		resOrDsType := func() string {
+			return string(me.resourceType)
+		}
+		if resource.Type == replacingIn {
+			replacePattern = "${%s.%s.name}"
+		} else {
+			if resource.IsReferencedAsDataSource() {
+				resOrDsType = func() string {
+					return string(me.resourceType.AsDataSource())
+				}
+				replacePattern = "${data.%s.%s.name}"
+				if environment.Flags.Flat {
+					replacePattern = "${data.%s.%s.name}"
+				}
+			} else {
+				replacePattern = "${var.%s.%s.name}"
+				if environment.Flags.Flat {
+					replacePattern = "${%s.%s.name}"
+				}
+			}
+		}
 		found := false
 		m1 := regexp.MustCompile(fmt.Sprintf("request_attribute(.*)=(.*)\"%s\"", resource.Name))
-		replaced := m1.ReplaceAllString(s, fmt.Sprintf("request_attribute$1=$2\"%s\"", fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName)))
+		replaced := m1.ReplaceAllString(s, fmt.Sprintf("request_attribute$1=$2\"%s\"", fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName)))
 		if replaced != s {
 			s = replaced
 			found = true
 		}
 		m1 = regexp.MustCompile(fmt.Sprintf("{RequestAttribute:%s}", resource.Name))
-		replaced = m1.ReplaceAllString(s, fmt.Sprintf("{RequestAttribute:%s}", fmt.Sprintf(replacePattern, me.resourceType, resource.UniqueName)))
+		replaced = m1.ReplaceAllString(s, fmt.Sprintf("{RequestAttribute:%s}", fmt.Sprintf(replacePattern, resOrDsType(), resource.UniqueName)))
 		if replaced != s {
 			s = replaced
 			found = true

@@ -25,7 +25,6 @@ The full documentation of the export feature is available [here](https://registr
 resource "dynatrace_dashboard" "#name#" {
   dashboard_metadata {
     name   = "#name#"
-    shared = false
     owner  = "Dynatrace"
     tags   = ["Kubernetes"]
     dynamic_filters {
@@ -836,8 +835,8 @@ Optional:
 - `dynamic_filters` (Block List, Max: 1) Dashboard filter configuration of a dashboard (see [below for nested schema](#nestedblock--dashboard_metadata--dynamic_filters))
 - `filter` (Block List, Max: 1) Global filter Settings for the Dashboard (see [below for nested schema](#nestedblock--dashboard_metadata--filter))
 - `preset` (Boolean) the dashboard is a preset (`true`) or not (`false`). Default is `false`.
-- `shared` (Boolean) the dashboard is shared (`true`) or private (`false`)
-- `sharing_details` (Block List, Max: 1) represents sharing configuration of a dashboard (see [below for nested schema](#nestedblock--dashboard_metadata--sharing_details))
+- `shared` (Boolean, Deprecated) the dashboard is shared (`true`) or private (`false`)
+- `sharing_details` (Block List, Max: 1, Deprecated) represents sharing configuration of a dashboard (see [below for nested schema](#nestedblock--dashboard_metadata--sharing_details))
 - `tags` (Set of String) a set of tags assigned to the dashboard
 - `tiles_name_size` (Number) No documentation available
 - `unknowns` (String) allows for configuring properties that are not explicitly supported by the current version of this provider
@@ -867,10 +866,33 @@ Currently supported values are:
 
 Optional:
 
+- `generic_tag_filters` (Block List, Max: 1) A set of generic tag filters that can be applied to a dashboard (see [below for nested schema](#nestedblock--dashboard_metadata--dynamic_filters--generic_tag_filters))
 - `tag_suggestion_types` (Set of String) A set of entities applied for tag filter suggestions. You can fetch the list of possible values with the [GET all entity types](https://dt-url.net/dw03s7h)request. 
 
 Only applicable if the **filters** set includes `TAG_KEY:<tagname>`
 - `unknowns` (String) allows for configuring properties that are not explicitly supported by the current version of this provider
+
+<a id="nestedblock--dashboard_metadata--dynamic_filters--generic_tag_filters"></a>
+### Nested Schema for `dashboard_metadata.dynamic_filters.generic_tag_filters`
+
+Required:
+
+- `filter` (Block Set, Min: 1) (see [below for nested schema](#nestedblock--dashboard_metadata--dynamic_filters--generic_tag_filters--filter))
+
+<a id="nestedblock--dashboard_metadata--dynamic_filters--generic_tag_filters--filter"></a>
+### Nested Schema for `dashboard_metadata.dynamic_filters.generic_tag_filters.filter`
+
+Required:
+
+- `entity_types` (Set of String) Entity types affected by tag
+
+Optional:
+
+- `name` (String) The display name used to identify this generic filter
+- `suggestions_from_entity_type` (String) The entity type for which the suggestions should be provided.
+- `tag_key` (String) The tag key for this filter
+
+
 
 
 <a id="nestedblock--dashboard_metadata--filter"></a>
@@ -929,6 +951,7 @@ Required:
 Optional:
 
 - `assigned_entities` (Set of String) The list of Dynatrace entities, assigned to the tile
+- `auto_refresh_disabled` (Boolean) Auto Refresh is disabled (`true`)
 - `bounds` (Block List, Max: 1) the position and size of a tile (see [below for nested schema](#nestedblock--tile--bounds))
 - `chart_visible` (Boolean)
 - `configured` (Boolean) The tile is configured and ready to use (`true`) or just placed on the dashboard (`false`)

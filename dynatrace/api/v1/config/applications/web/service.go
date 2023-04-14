@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 
@@ -30,6 +31,9 @@ import (
 
 const SchemaID = "v1:config:applications:web"
 
+var DefaultCreateConfirmTimeout = 60
+var createConfirmTimeout = settings.GetIntEnv("DYNATRACE_CREATE_CONFIRM_WEB_APPLICATION", DefaultCreateConfirmTimeout, 20, 300)
+
 func Service(credentials *settings.Credentials) settings.CRUDService[*web.Application] {
 	return settings.NewCRUDService(
 		credentials,
@@ -37,11 +41,39 @@ func Service(credentials *settings.Credentials) settings.CRUDService[*web.Applic
 		&settings.ServiceOptions[*web.Application]{
 			Get:           settings.Path("/api/config/v1/applications/web/%s"),
 			List:          settings.Path("/api/config/v1/applications/web"),
-			CreateConfirm: 20,
+			CreateConfirm: createConfirmTimeout,
 			CompleteGet:   LoadKeyUserActions,
 			OnChanged:     SaveKeyUserActions,
+			Duplicates:    Duplicates,
 		},
 	)
+}
+
+func Duplicates(service settings.RService[*web.Application], v *web.Application) (*api.Stub, error) {
+	if settings.RejectDuplicate("dynatrace_web_application") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return nil, fmt.Errorf("Web Application named '%s' already exists", v.Name)
+			}
+		}
+	} else if settings.HijackDuplicate("dynatrace_web_application") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return stub, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func SaveKeyUserActions(client rest.Client, id string, v *web.Application) error {

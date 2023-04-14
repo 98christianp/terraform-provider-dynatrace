@@ -22,9 +22,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/httpcache"
 
 	webservice "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/applications/web"
 	dataprivacy "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/applications/web/dataprivacy/settings"
@@ -36,7 +38,7 @@ const SchemaID = "v1:config:applications:web:data-privacy"
 func Service(credentials *settings.Credentials) settings.CRUDService[*dataprivacy.ApplicationDataPrivacy] {
 	return &service{
 		schemaID:      SchemaID,
-		client:        rest.DefaultClient(credentials.URL, credentials.Token),
+		client:        httpcache.DefaultClient(credentials.URL, credentials.Token, SchemaID),
 		webAppService: cache.CRUD(webservice.Service(credentials), true)}
 }
 
@@ -46,8 +48,18 @@ type service struct {
 	webAppService settings.CRUDService[*web.Application]
 }
 
+func extractApplicationID(id string) string {
+	if strings.HasSuffix(id, "-data-privacy") {
+		return strings.TrimSuffix(id, "-data-privacy")
+	} else if strings.HasPrefix(id, "DATA-PRIVACY-") {
+		return strings.TrimPrefix(id, "DATA-PRIVACY-")
+	}
+	return id
+}
+
 func (me *service) Get(id string, v *dataprivacy.ApplicationDataPrivacy) error {
-	id = strings.TrimSuffix(id, "-data-privacy")
+	id = extractApplicationID(id)
+
 	req := me.client.Get(fmt.Sprintf("/api/config/v1/applications/web/%s/dataPrivacy", url.PathEscape(id)), 200)
 
 	if err := req.Finish(v); err != nil {
@@ -73,7 +85,7 @@ func (me *service) Get(id string, v *dataprivacy.ApplicationDataPrivacy) error {
 }
 
 func (me *service) Update(id string, v *dataprivacy.ApplicationDataPrivacy) error {
-	id = strings.TrimSuffix(id, "-data-privacy")
+	id = extractApplicationID(id)
 	err := me.client.Put(fmt.Sprintf("/api/config/v1/applications/web/%s/dataPrivacy", id), v, 201, 204).Finish()
 	if err != nil && strings.HasPrefix(err.Error(), "No Content (PUT)") {
 		return nil
@@ -82,7 +94,7 @@ func (me *service) Update(id string, v *dataprivacy.ApplicationDataPrivacy) erro
 }
 
 func (me *service) Delete(id string) error {
-	id = strings.TrimSuffix(id, "-data-privacy")
+	id = extractApplicationID(id)
 	settings := dataprivacy.ApplicationDataPrivacy{
 		DataCaptureOptInEnabled:         false,
 		PersistentCookieForUserTracking: false,
@@ -109,7 +121,7 @@ func (me *service) Delete(id string) error {
 
 func (me *service) Validate(v *dataprivacy.ApplicationDataPrivacy) error {
 	id := *v.WebApplicationID
-	id = strings.TrimSuffix(id, "-data-privacy")
+	id = extractApplicationID(id)
 	err := me.client.Post(fmt.Sprintf("/api/config/v1/applications/web/%s/dataPrivacy/validator", id), v, 204).Finish()
 	if err != nil && strings.HasPrefix(err.Error(), "No Content (PUT)") {
 		return nil
@@ -117,16 +129,16 @@ func (me *service) Validate(v *dataprivacy.ApplicationDataPrivacy) error {
 	return err
 }
 
-func (me *service) Create(v *dataprivacy.ApplicationDataPrivacy) (*settings.Stub, error) {
+func (me *service) Create(v *dataprivacy.ApplicationDataPrivacy) (*api.Stub, error) {
 	if err := me.Update(*v.WebApplicationID, v); err != nil {
 		return nil, err
 	}
-	return &settings.Stub{ID: *v.WebApplicationID + "-data-privacy"}, nil
+	return &api.Stub{ID: *v.WebApplicationID + "-data-privacy"}, nil
 }
 
-func (me *service) List() (settings.Stubs, error) {
+func (me *service) List() (api.Stubs, error) {
 	var err error
-	var stubs settings.Stubs
+	var stubs api.Stubs
 
 	if stubs, err = me.webAppService.List(); err != nil {
 		return nil, err
@@ -139,5 +151,9 @@ func (me *service) List() (settings.Stubs, error) {
 }
 
 func (me *service) SchemaID() string {
+	return me.schemaID
+}
+
+func (me *service) Name() string {
 	return me.schemaID
 }

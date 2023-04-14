@@ -95,7 +95,7 @@ func createJar() *cookiejar.Jar {
 }
 
 type Request interface {
-	Raw() ([]byte, error)
+	// Raw() ([]byte, error)
 	Finish(v ...any) error
 	Expect(codes ...int) Request
 	Payload(any) Request
@@ -228,11 +228,23 @@ func (me *request) Raw() ([]byte, error) {
 	if data, err = io.ReadAll(res.Body); err != nil {
 		return nil, err
 	}
+	if os.Getenv("DYNATRACE_HTTP_RESPONSE") == "true" {
+		if data != nil {
+			logger.Println(res.Status, string(data))
+		} else {
+			logger.Println(res.Status)
+		}
+	}
 	if len(me.expect) > 0 && !me.expect.contains(res.StatusCode) {
 		if len(requestData) > 0 {
 			errorLogger.Println(me.method, url+"\n    "+string(requestData))
 		} else {
 			errorLogger.Println(me.method, url)
+		}
+		if os.Getenv("DYNATRACE_HTTP_ERROR_RESPONSE_HEADERS") == "true" && len(res.Header) > 0 {
+			for headerName, headerValues := range res.Header {
+				errorLogger.Println("  HEADER", headerName, headerValues)
+			}
 		}
 		errorLogger.Println("  ", res.StatusCode, string(data))
 		var env errorEnvelope
@@ -264,7 +276,28 @@ func (me *request) OnResponse(onResponse func(resp *http.Response)) Request {
 	return me
 }
 
-const maxWorkers = 20
+const defaultMaxWorkers = 20
+const highLimitMaxWorkers = 50
+
+var maxWorkers = resolveMaxWorkers()
+
+func resolveMaxWorkers() int64 {
+	sMaxWorkers := os.Getenv("DYNATRACE_MAX_HTTP_WORKERS")
+	if len(sMaxWorkers) == 0 {
+		return defaultMaxWorkers
+	}
+	mw, err := strconv.Atoi(sMaxWorkers)
+	if err != nil {
+		return defaultMaxWorkers
+	}
+	if mw > highLimitMaxWorkers {
+		return highLimitMaxWorkers
+	}
+	if mw < 1 {
+		return 1
+	}
+	return int64(mw)
+}
 
 var sem = semaphore.NewWeighted(maxWorkers)
 
@@ -283,29 +316,33 @@ func (s *request) execute(callback func() (*http.Response, error)) (*http.Respon
 		return nil, err
 	}
 
-	maxIterationCount := 5
+	maxIterationCount := 500
 	currentIteration := 0
 
 	for response.StatusCode == http.StatusTooManyRequests && currentIteration < maxIterationCount {
 
-		limit, humanReadableTimestamp, timeInMicroseconds, err := s.extractRateLimitHeaders(response)
-		if err != nil {
-			return response, err
-		}
+		if limit, humanReadableTimestamp, timeInMicroseconds, err := s.extractRateLimitHeaders(response); err == nil {
+			logger.Printf("Rate limit of %s requests/min reached (iteration: %d)", limit, currentIteration+1)
+			logger.Printf("Attempting to sleep until %s", humanReadableTimestamp)
 
-		logger.Printf("Rate limit of %s requests/min reached (iteration: %d)", limit, currentIteration+1)
-		logger.Printf("Attempting to sleep until %s", humanReadableTimestamp)
+			now := Now()                                            // client time
+			resetTime := MicrosecondsToUnixTime(timeInMicroseconds) // server time
+			// mixing server and client time here - sanity check necessary
+			sleepDuration := min(max(resetTime.Sub(now), MinWaitTime), MaxWaitTime)
 
-		now := Now()                                            // client time
-		resetTime := MicrosecondsToUnixTime(timeInMicroseconds) // server time
-		// mixing server and client time here - sanity check necessary
-		sleepDuration := min(max(resetTime.Sub(now), MinWaitTime), MaxWaitTime)
+			time.Sleep(sleepDuration)
 
-		time.Sleep(sleepDuration)
-
-		currentIteration++
-		if response, err = callback(); err != nil {
-			return nil, err
+			currentIteration++
+			if response, err = callback(); err != nil {
+				return nil, err
+			}
+		} else {
+			// fallback if there are no response headers available
+			time.Sleep(30 * time.Second)
+			currentIteration++
+			if response, err = callback(); err != nil {
+				return nil, err
+			}
 		}
 	}
 

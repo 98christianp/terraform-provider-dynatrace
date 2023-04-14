@@ -18,8 +18,10 @@
 package metricevents
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 
@@ -33,8 +35,35 @@ func Service(credentials *settings.Credentials) settings.CRUDService[*metriceven
 	return settings.NewCRUDService(
 		credentials,
 		SchemaID,
-		settings.DefaultServiceOptions[*metricevents.MetricEvent](BasePath).WithCreateRetry(RetryOnCreate),
+		settings.DefaultServiceOptions[*metricevents.MetricEvent](BasePath).WithCreateRetry(RetryOnCreate).WithDuplicates(Duplicates),
 	)
+}
+
+func Duplicates(service settings.RService[*metricevents.MetricEvent], v *metricevents.MetricEvent) (*api.Stub, error) {
+	if settings.RejectDuplicate("dynatrace_custom_anomalies") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return nil, fmt.Errorf("Custom Anomalies named '%s' already exists", v.Name)
+			}
+		}
+	} else if settings.HijackDuplicate("dynatrace_custom_anomalies") {
+		var err error
+		var stubs api.Stubs
+		if stubs, err = service.List(); err != nil {
+			return nil, err
+		}
+		for _, stub := range stubs {
+			if v.Name == stub.Name {
+				return stub, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func RetryOnCreate(v *metricevents.MetricEvent, err error) *metricevents.MetricEvent {
