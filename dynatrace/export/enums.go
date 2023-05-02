@@ -39,8 +39,18 @@ func (me ResourceType) AsDataSource() string {
 		return "dynatrace_request_attribute"
 	case ResourceTypes.WebApplication:
 		return "dynatrace_application"
+	case ResourceTypes.MobileApplication:
+		return "dynatrace_mobile_application"
 	case ResourceTypes.RequestNaming:
 		return "dynatrace_request_naming"
+	case ResourceTypes.Dashboard:
+		return "dynatrace_dashboard"
+	case ResourceTypes.JSONDashboard:
+		return "dynatrace_dashboard"
+	case ResourceTypes.SLO:
+		return "dynatrace_slo"
+	case ResourceTypes.CalculatedServiceMetric:
+		return "dynatrace_calculated_service_metric"
 	}
 	return ""
 }
@@ -245,6 +255,8 @@ var ResourceTypes = struct {
 	OneAgentUpdates                     ResourceType
 	OwnershipTeams                      ResourceType
 	LogCustomSource                     ResourceType
+	ApplicationDetectionV2              ResourceType
+	Kubernetes                          ResourceType
 }{
 	"dynatrace_autotag",
 	"dynatrace_custom_service",
@@ -445,6 +457,8 @@ var ResourceTypes = struct {
 	"dynatrace_oneagent_updates",
 	"dynatrace_ownership_teams",
 	"dynatrace_log_custom_source",
+	"dynatrace_application_detection_rule_v2",
+	"dynatrace_kubernetes",
 }
 
 type ResourceStatus string

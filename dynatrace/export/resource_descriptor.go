@@ -39,6 +39,7 @@ import (
 	web_app_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/web"
 	apidetection "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/apis/detectionrules"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/auditlog"
+	kubernetesv2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/cloud/kubernetes"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/builtinmonitoringrule"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/monitoringrule"
 	containertechnology "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/technology"
@@ -118,6 +119,7 @@ import (
 	rumproviderbreakdown "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/providerbreakdown"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/resourcetimingorigins"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/userexperiencescore"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/web/appdetection"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/web/beacondomainorigins"
 	webappcustomerrors "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/web/customerrors"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/web/customrumjavascriptversion"
@@ -365,7 +367,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		jsondashboards.Service,
 		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
 		Dependencies.ManagementZone,
-		Dependencies.Service,
+		// Dependencies.Service,
 		Dependencies.ID(ResourceTypes.SLO),
 		Dependencies.ID(ResourceTypes.WebApplication),
 		Dependencies.ID(ResourceTypes.MobileApplication),
@@ -590,15 +592,15 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.RUMIPLocations: NewResourceDescriptor(ipmappings.Service),
 	ResourceTypes.CustomAppEnablement: NewResourceDescriptor(
 		rumcustomenablement.Service,
-		Dependencies.ID(ResourceTypes.MobileApplication),
+		Coalesce(Dependencies.MobileApplication),
 	),
 	ResourceTypes.MobileAppEnablement: NewResourceDescriptor(
 		rummobileenablement.Service,
-		Dependencies.ID(ResourceTypes.MobileApplication),
+		Coalesce(Dependencies.MobileApplication),
 	),
 	ResourceTypes.WebAppEnablement: NewResourceDescriptor(
 		rumwebenablement.Service,
-		Dependencies.ID(ResourceTypes.WebApplication),
+		Coalesce(Dependencies.Application),
 	),
 	ResourceTypes.RUMProcessGroup: NewResourceDescriptor(
 		rumprocessgroup.Service,
@@ -633,15 +635,15 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	),
 	ResourceTypes.SessionReplayWebPrivacy: NewResourceDescriptor(
 		sessionreplaywebprivacy.Service,
-		Dependencies.ID(ResourceTypes.WebApplication),
+		Coalesce(Dependencies.Application),
 	),
 	ResourceTypes.SessionReplayResourceCapture: NewResourceDescriptor(
 		sessionreplayresourcecapture.Service,
-		Dependencies.ID(ResourceTypes.WebApplication),
+		Coalesce(Dependencies.Application),
 	),
 	ResourceTypes.UsabilityAnalytics: NewResourceDescriptor(
 		analytics.Service,
-		Dependencies.ID(ResourceTypes.WebApplication),
+		Coalesce(Dependencies.Application),
 	),
 	ResourceTypes.SyntheticAvailability: NewResourceDescriptor(availability.Service),
 	ResourceTypes.BrowserMonitorOutageHandling: NewResourceDescriptor(
@@ -861,6 +863,14 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	),
 	ResourceTypes.OwnershipTeams:  NewResourceDescriptor(teams.Service),
 	ResourceTypes.LogCustomSource: NewResourceDescriptor(customlogsourcesettings.Service),
+	ResourceTypes.ApplicationDetectionV2: NewResourceDescriptor(
+		appdetection.Service,
+		Coalesce(Dependencies.Application),
+	),
+	ResourceTypes.Kubernetes: NewResourceDescriptor(
+		kubernetesv2.Service,
+		Coalesce(Dependencies.K8sCluster),
+	),
 }
 
 var BlackListedResources = []ResourceType{
@@ -893,6 +903,9 @@ var BlackListedResources = []ResourceType{
 	ResourceTypes.WebAppRequestErrors,          // overlap with ResourceTypes.ApplicationErrorRules
 	ResourceTypes.UserSettings,                 // requires personal token
 	ResourceTypes.LogGrail,                     // phased rollout
+	ResourceTypes.ApplicationDetectionV2,       //overlap with ResourceTypes.ApplicationDetection
+
+	ResourceTypes.KubernetesCredentials, //overlap with Settings 2.0 ResourceTypes.Kubernetes
 }
 
 func Service(credentials *settings.Credentials, resourceType ResourceType) settings.CRUDService[settings.Settings] {

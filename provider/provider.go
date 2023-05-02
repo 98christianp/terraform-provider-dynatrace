@@ -24,6 +24,7 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/application"
 	dsaws "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/aws"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/credentials/vault"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/dashboard"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/entities"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/entity"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/host"
@@ -31,11 +32,13 @@ import (
 	ds_iam_users "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/iam/users"
 	metricsds "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/metrics/calculated/service"
 	mgmzds "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/mgmz"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/mobileapplication"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/process"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/processgroup"
 	reqattrds "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/requestattributes"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/requestnaming"
 	serviceds "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/service"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/slo"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/synthetic/locations"
 	v2alerting "github.com/dynatrace-oss/terraform-provider-dynatrace/datasources/v2alerting"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/export"
@@ -121,6 +124,7 @@ func Provider() *schema.Provider {
 			"dynatrace_management_zone":           mgmzds.DataSource(),
 			"dynatrace_management_zones":          mgmzds.DataSourceMultiple(),
 			"dynatrace_application":               application.DataSource(),
+			"dynatrace_mobile_application":        mobileapplication.DataSource(),
 			"dynatrace_host":                      host.DataSource(),
 			"dynatrace_process":                   process.DataSource(),
 			"dynatrace_process_group":             processgroup.DataSource(),
@@ -132,6 +136,8 @@ func Provider() *schema.Provider {
 			"dynatrace_entities":                  entities.DataSource(),
 			"dynatrace_iam_user":                  ds_iam_users.DataSource(),
 			"dynatrace_request_naming":            requestnaming.DataSource(),
+			"dynatrace_dashboard":                 dashboard.DataSource(),
+			"dynatrace_slo":                       slo.DataSource(),
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"dynatrace_custom_service":                     resources.NewGeneric(export.ResourceTypes.CustomService).Resource(),
@@ -341,6 +347,8 @@ func Provider() *schema.Provider {
 			"dynatrace_oneagent_updates":                   resources.NewGeneric(export.ResourceTypes.OneAgentUpdates).Resource(),
 			"dynatrace_ownership_teams":                    resources.NewGeneric(export.ResourceTypes.OwnershipTeams).Resource(),
 			"dynatrace_log_custom_source":                  resources.NewGeneric(export.ResourceTypes.LogCustomSource).Resource(),
+			"dynatrace_application_detection_rule_v2":      resources.NewGeneric(export.ResourceTypes.ApplicationDetectionV2).Resource(),
+			"dynatrace_kubernetes":                         resources.NewGeneric(export.ResourceTypes.Kubernetes).Resource(),
 		},
 		ConfigureContextFunc: config.ProviderConfigure,
 	}
