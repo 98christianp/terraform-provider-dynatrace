@@ -57,6 +57,7 @@ func (me ResourceType) AsDataSource() string {
 
 var ResourceTypes = struct {
 	AutoTag                             ResourceType
+	AutoTagV2                           ResourceType
 	CustomService                       ResourceType
 	RequestAttribute                    ResourceType
 	ApplicationAnomalies                ResourceType
@@ -70,6 +71,7 @@ var ResourceTypes = struct {
 	MaintenanceWindow                   ResourceType
 	ManagementZone                      ResourceType
 	SLO                                 ResourceType
+	SLOV2                               ResourceType
 	SpanAttribute                       ResourceType
 	SpanCaptureRule                     ResourceType
 	SpanContextPropagation              ResourceType
@@ -227,6 +229,7 @@ var ResourceTypes = struct {
 	LogCustomAttribute                  ResourceType
 	LogSensitiveDataMasking             ResourceType
 	LogStorage                          ResourceType
+	LogBuckets                          ResourceType
 	EULASettings                        ResourceType
 	APIDetectionRules                   ResourceType
 	ServiceExternalWebRequest           ResourceType
@@ -254,11 +257,24 @@ var ResourceTypes = struct {
 	OneAgentDefaultVersion              ResourceType
 	OneAgentUpdates                     ResourceType
 	OwnershipTeams                      ResourceType
+	OwnershipConfig                     ResourceType
 	LogCustomSource                     ResourceType
 	ApplicationDetectionV2              ResourceType
 	Kubernetes                          ResourceType
+	CloudFoundry                        ResourceType
+	DiskAnomalyDetectionRules           ResourceType
+	AWSAnomalies                        ResourceType
+	VMwareAnomalies                     ResourceType
+	BusinessEventsOneAgent              ResourceType
+	BusinessEventsBuckets               ResourceType
+	BusinessEventsMetrics               ResourceType
+	BusinessEventsProcessing            ResourceType
+	WebAppKeyPerformanceCustom          ResourceType
+	WebAppKeyPerformanceLoad            ResourceType
+	WebAppKeyPerformanceXHR             ResourceType
 }{
 	"dynatrace_autotag",
+	"dynatrace_autotag_v2",
 	"dynatrace_custom_service",
 	"dynatrace_request_attribute",
 	"dynatrace_application_anomalies",
@@ -272,6 +288,7 @@ var ResourceTypes = struct {
 	"dynatrace_maintenance_window",
 	"dynatrace_management_zone",
 	"dynatrace_slo",
+	"dynatrace_slo_v2",
 	"dynatrace_span_attribute",
 	"dynatrace_span_capture_rule",
 	"dynatrace_span_context_propagation",
@@ -429,6 +446,7 @@ var ResourceTypes = struct {
 	"dynatrace_log_custom_attribute",
 	"dynatrace_log_sensitive_data_masking",
 	"dynatrace_log_storage",
+	"dynatrace_log_buckets",
 	"dynatrace_eula_settings",
 	"dynatrace_api_detection",
 	"dynatrace_service_external_web_request",
@@ -456,9 +474,31 @@ var ResourceTypes = struct {
 	"dynatrace_oneagent_default_version",
 	"dynatrace_oneagent_updates",
 	"dynatrace_ownership_teams",
+	"dynatrace_ownership_config",
 	"dynatrace_log_custom_source",
 	"dynatrace_application_detection_rule_v2",
 	"dynatrace_kubernetes",
+	"dynatrace_cloud_foundry",
+	"dynatrace_disk_anomaly_rules",
+	"dynatrace_aws_anomalies",
+	"dynatrace_vmware_anomalies",
+	"dynatrace_business_events_oneagent",
+	"dynatrace_business_events_buckets",
+	"dynatrace_business_events_metrics",
+	"dynatrace_business_events_processing",
+	"dynatrace_web_app_key_performance_custom",
+	"dynatrace_web_app_key_performance_load",
+	"dynatrace_web_app_key_performance_xhr",
+}
+
+func (me ResourceType) GetChildren() []ResourceType {
+	res := []ResourceType{}
+	for k, v := range AllResources {
+		if v.Parent != nil && (string(*v.Parent) == string(me)) {
+			res = append(res, k)
+		}
+	}
+	return res
 }
 
 type ResourceStatus string

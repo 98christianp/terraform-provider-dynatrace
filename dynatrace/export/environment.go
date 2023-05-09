@@ -18,9 +18,12 @@
 package export
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -30,6 +33,7 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/shutdown"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/version"
+	"github.com/spf13/afero"
 )
 
 type Environment struct {
@@ -132,19 +136,48 @@ func (me *Environment) PostProcess() error {
 			reslist = append(reslist, resource)
 			m[resource.Type] = reslist
 		}
+		const ClearLine = "\033[2K"
 		for k, reslist := range m {
-			fmt.Println("- " + k)
-			for _, resource := range reslist {
+			fmt.Printf("- %s (0 of %d)", k, len(reslist))
+			for idx, resource := range reslist {
 				if shutdown.System.Stopped() {
 					return nil
 				}
 				if err := resource.PostProcess(); err != nil {
 					return err
 				}
+				fmt.Print(ClearLine)
+				fmt.Print("\r")
+				fmt.Printf("- %s (%d of %d)", k, idx+1, len(reslist))
+
 			}
+			fmt.Print(ClearLine)
+			fmt.Print("\r")
+			fmt.Printf("- %s\n", k)
 		}
 
 		resources = me.GetNonPostProcessedResources()
+	}
+
+	for _, resource := range me.GetChildResources() {
+
+		var parentBytes []byte
+		var childBytes []byte
+		var err error
+		if parentBytes, err = resource.Parent.ReadFile(); err != nil {
+			return err
+		}
+		if childBytes, err = resource.ReadFile(); err != nil {
+			return err
+		}
+		var parentFile *os.File
+		if parentFile, err = resource.Parent.CreateFile(); err != nil {
+			return err
+		}
+		defer parentFile.Close()
+		parentFile.Write(parentBytes)
+		parentFile.Write([]byte("\n\n"))
+		parentFile.Write(childBytes)
 	}
 	return nil
 }
@@ -169,6 +202,10 @@ func (me *Environment) Finish() (err error) {
 	if err = me.WriteProviderFiles(); err != nil {
 		return err
 	}
+	// for _, module := range me.Modules {
+	// 	fmt.Println(module.Type, len(module.GetPostProcessedResources()))
+	// }
+
 	if err = me.RemoveNonReferencedModules(); err != nil {
 		return err
 	}
@@ -230,7 +267,19 @@ func (me *Environment) GetNonPostProcessedResources() []*Resource {
 	return resources
 }
 
+func (me *Environment) GetChildResources() []*Resource {
+	resources := []*Resource{}
+	for _, module := range me.Modules {
+		if module.Descriptor.Parent != nil {
+			resources = append(resources, module.GetChildResources()...)
+		}
+	}
+	return resources
+}
+
 func (me *Environment) WriteDataSourceFiles() (err error) {
+	fmt.Println("Writing ___datasources___.tf")
+
 	if me.Flags.Flat {
 		dataSources := map[string]*DataSource{}
 		for _, module := range me.Modules {
@@ -271,6 +320,7 @@ func (me *Environment) WriteResourceFiles() (err error) {
 	if me.Flags.Flat {
 		return nil
 	}
+	fmt.Println("Writing ___resources___.tf")
 	for _, module := range me.Modules {
 		if err = module.WriteResourcesFile(); err != nil {
 			return err
@@ -281,7 +331,12 @@ func (me *Environment) WriteResourceFiles() (err error) {
 
 func (me *Environment) RemoveNonReferencedModules() (err error) {
 	for _, module := range me.Modules {
-		if module.IsReferencedAsDataSource() {
+		if module.IsReferencedAsDataSource() || module.Descriptor.Parent != nil {
+			if err = module.PurgeFolder(); err != nil {
+				return err
+			}
+		}
+		if len(module.GetPostProcessedResources()) == 0 {
 			if err = module.PurgeFolder(); err != nil {
 				return err
 			}
@@ -291,6 +346,8 @@ func (me *Environment) RemoveNonReferencedModules() (err error) {
 }
 
 func (me *Environment) WriteProviderFiles() (err error) {
+	fmt.Println("Writing ___providers___.tf")
+
 	var outputFile *os.File
 	if outputFile, err = me.CreateFile("___providers___.tf"); err != nil {
 		return err
@@ -334,6 +391,7 @@ func (me *Environment) WriteProviderFiles() (err error) {
 }
 
 func (me *Environment) WriteVariablesFiles() (err error) {
+	fmt.Println("Writing ___variables___.tf")
 	for _, module := range me.Modules {
 		if err = module.WriteVariablesFile(); err != nil {
 			return err
@@ -362,6 +420,8 @@ func (me *Environment) WriteMainFile() error {
 	if me.Flags.Flat {
 		return nil
 	}
+	fmt.Println("Writing main.tf")
+
 	var err error
 	var mainFile *os.File
 	if mainFile, err = os.Create(path.Join(me.OutputFolder, "main.tf")); err != nil {
@@ -380,6 +440,12 @@ func (me *Environment) WriteMainFile() error {
 	for _, sResourceType := range sResourceTypes {
 		resourceType := ResourceType(sResourceType)
 		if me.Module(resourceType).IsReferencedAsDataSource() {
+			continue
+		}
+		if me.Module(resourceType).Descriptor.Parent != nil {
+			continue
+		}
+		if len(me.Module(resourceType).GetPostProcessedResources()) == 0 {
 			continue
 		}
 		mainFile.WriteString(fmt.Sprintf("module \"%s\" {\n", resourceType.Trim()))
@@ -404,13 +470,118 @@ func (me *Environment) WriteMainFile() error {
 }
 
 func (me *Environment) ExecuteImport() error {
-	if !me.Flags.ImportState {
-		return nil
+	if me.Flags.ImportState {
+		return me.executeImportV1()
 	}
+	if me.Flags.ImportStateV2 {
+		return me.executeImportV2()
+	}
+
+	return nil
+}
+
+func (me *Environment) executeImportV1() error {
 	for _, module := range me.Modules {
-		if err := module.ExecuteImport(); err != nil {
+		if shutdown.System.Stopped() {
+			return errors.New("Import was stopped")
+		}
+		if err := module.ExecuteImportV1(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (me *Environment) executeImportV2() error {
+	itemCount := len(me.Modules)
+	fmt.Printf("Importing %d Modules", itemCount)
+	channel := make(chan *Module, itemCount)
+	mutex := sync.Mutex{}
+	waitGroup := sync.WaitGroup{}
+	maxThreads := 10
+	if maxThreads > itemCount {
+		maxThreads = itemCount
+	}
+	waitGroup.Add(maxThreads)
+	errs := []error{}
+	fs := afero.NewOsFs()
+	var newStateObject interface{}
+
+	processModule := func(module *Module) {
+		stateObject, err := module.ExecuteImportV2(fs, "")
+		if err != nil {
+			mutex.Lock()
+			errs = append(errs, err)
+			mutex.Unlock()
+			return
+		}
+		mutex.Lock()
+		newStateObject = updateState(newStateObject, stateObject)
+		mutex.Unlock()
+	}
+
+	for i := 0; i < maxThreads; i++ {
+
+		go func() {
+
+			for {
+				module, ok := <-channel
+				if shutdown.System.Stopped() {
+					ok = false
+				}
+				if !ok {
+					waitGroup.Done()
+					return
+				}
+				processModule(module)
+			}
+		}()
+
+	}
+
+	for _, module := range me.Modules {
+		channel <- module
+	}
+
+	close(channel)
+	waitGroup.Wait()
+	if shutdown.System.Stopped() {
+		return fmt.Errorf("Import was stopped: %v", errs)
+	}
+
+	if len(errs) >= 1 {
+		return fmt.Errorf("Error during state import: %v", errs)
+	}
+
+	bytes, err := json.MarshalIndent(newStateObject, "", "  ")
+	if err != nil {
+		return err
+	}
+	filename := fmt.Sprint(filepath.Join(me.OutputFolder, "terraform.tfstate"))
+	err = afero.WriteFile(fs, filename, bytes, 0664)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateState(newStateObject interface{}, stateObject interface{}) interface{} {
+	if stateObject == nil {
+		return newStateObject
+	}
+
+	if newStateObject == nil {
+		newStateObject = stateObject
+	} else {
+		serialValue := stateObject.(map[string]interface{})["serial"].(float64)
+		newSerialValue := newStateObject.(map[string]interface{})["serial"].(float64)
+		newStateObject.(map[string]interface{})["serial"] = (serialValue + newSerialValue)
+
+		newStateObject.(map[string]interface{})["resources"] = append(
+			newStateObject.(map[string]interface{})["resources"].([]interface{}),
+			stateObject.(map[string]interface{})["resources"].([]interface{})...,
+		)
+	}
+	return newStateObject
 }
