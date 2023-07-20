@@ -30,12 +30,13 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-var preventHeredoc = os.Getenv("DYNATRACE_HEREDOC") != "false"
+var preventHeredoc = os.Getenv("DYNATRACE_HEREDOC") == "false"
 
 type primitiveEntry struct {
 	Indent      string
 	Key         string
 	Optional    bool
+	Computed    bool
 	BreadCrumbs string
 	Value       any
 }
@@ -62,7 +63,9 @@ func toJSONencode(s string, indent string) string {
 }
 
 func finalizeString(s string, indent string) string {
-	finalString := strings.ReplaceAll(s, "\n", "\n"+indent+"  ")
+	finalString := strings.ReplaceAll(s, "\r\n", "\n"+indent+"  ")
+	finalString = strings.ReplaceAll(finalString, "\n", "\n"+indent+"  ")
+	finalString = strings.ReplaceAll(finalString, "\r", "\n"+indent+"  ")
 
 	finalString = strings.ReplaceAll(finalString, "${data.", "DOLLAR_DATA_DOT")
 	finalString = strings.ReplaceAll(finalString, "${dynatrace_", "DOLLAR_DYNATRACE")
@@ -194,6 +197,10 @@ func escapeQuotedStringLit0(s string) []byte {
 
 func (me *primitiveEntry) IsOptional() bool {
 	return me.Optional
+}
+
+func (me *primitiveEntry) IsComputed() bool {
+	return me.Computed
 }
 
 func (me *primitiveEntry) IsDefault() bool {

@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/address"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/shutdown"
@@ -44,7 +45,14 @@ type Resource struct {
 	DataSourceReferences []*DataSource
 	OutputFileAbs        string
 	Flawed               bool
-	Parent               *Resource
+	XParent              *Resource
+}
+
+func (me *Resource) GetParent() *Resource {
+	if me.Module.Environment.ChildResourceOverride {
+		return nil
+	}
+	return me.XParent
 }
 
 func (me *Resource) IsReferencedAsDataSource() bool {
@@ -57,9 +65,7 @@ func (me *Resource) SetName(name string) *Resource {
 	}
 	me.Name = name
 	terraformName := toTerraformName(name)
-	if terraformName != me.UniqueName {
-		me.UniqueName = me.Module.namer.Name(terraformName)
-	}
+	me.UniqueName = me.Module.namer.Name(terraformName)
 	me.Status = ResourceStati.Discovered
 	return me
 }
@@ -171,6 +177,11 @@ func (me *Resource) Download() error {
 				me.Error = err
 				return nil
 			}
+			if restError.Code == 500 {
+				me.Status = ResourceStati.Erronous
+				me.Error = err
+				return nil
+			}
 			if strings.HasPrefix(restError.Message, "Token is missing required scope") {
 				me.Status = ResourceStati.Erronous
 				me.Error = err
@@ -184,6 +195,17 @@ func (me *Resource) Download() error {
 	if legacyID != nil {
 		me.LegacyID = *legacyID
 	}
+
+	idOnly, _, _ := settings.SplitID(me.ID)
+	address.AddToComplete(address.AddressComplete{
+		AddressOriginal: address.AddressOriginal{
+			TerraformSchemaID: service.SchemaID(),
+			OriginalID:        idOnly,
+		},
+		UniqueName:  me.UniqueName,
+		Type:        string(me.Type),
+		TrimmedType: me.Type.Trim(),
+	})
 	comments := settings.FillDemoValues(settngs)
 	comments = append(comments, settings.Validate(settngs)...)
 
@@ -313,7 +335,7 @@ func (me *Resource) PostProcess() error {
 					if err = typedItem.Download(); err != nil {
 						return err
 					}
-					me.Parent = typedItem
+					me.XParent = typedItem
 					me.ResourceReferences = append(me.ResourceReferences, typedItem)
 				case *DataSource:
 					// me.DataSourceReferences = append(me.DataSourceReferences, typedItem)

@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_mainframe_transaction_monitoring Resource - terraform-provider-dynatrace"
+subcategory: "Mainframe"
 description: |-
   The resource `dynatrace_mainframe_transaction_monitoring` covers additional monitoring settings for CICS and IMS transactions
 ---
 
 # dynatrace_mainframe_transaction_monitoring (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -15,7 +18,7 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_mainframe_transaction_monitoring` downloads all real user monitoring configuration for process groups
+- `terraform-provider-dynatrace -export dynatrace_mainframe_transaction_monitoring` downloads all additional monitoring settings for CICS and IMS transactions
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 

@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_service_now_notification Resource - terraform-provider-dynatrace"
+subcategory: "Notifications"
 description: |-
   The resource `dynatrace_service_now_notification` covers configuration problem notifications sent to Service Now
 ---
 
 # dynatrace_service_now_notification (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -15,7 +18,7 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_service_now_notification` downloads the existing Problem Notifications for Service Now
+- `terraform-provider-dynatrace -export dynatrace_service_now_notification` downloads the existing problem notifications for Service Now
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 
@@ -25,8 +28,8 @@ The full documentation of the export feature is available [here](https://registr
 resource "dynatrace_service_now_notification" "#name#" { # replace #name# with the name you would like your resource be known within your Terraform Module
   active    = false
   name      = "#name#" # replace #name# with the name you would like your entry to be displayed within the Dynatrace Web UI
-  profile   = data.dynatrace_alerting_profile.Default.id
-  instance  = "service-now-instance-name"
+  profile   = dynatrace_alerting.Default.id
+  instance  = "#name#"
   username  = "service-now-username"
   password  = "service-now-password"
   message   = "service-now-message"
@@ -34,8 +37,8 @@ resource "dynatrace_service_now_notification" "#name#" { # replace #name# with t
   events    = true
 }
 
-data "dynatrace_alerting_profile" "Default" {
-  name = "Default"
+resource "dynatrace_alerting" "Default" {
+  name = "#name#"
 }
 ```
 
@@ -54,6 +57,7 @@ data "dynatrace_alerting_profile" "Default" {
 ### Optional
 
 - `events` (Boolean) Send events into ServiceNow ITOM
+- `format_problem_details_as_text` (Boolean) Use text format for problem details instead of HTML.
 - `instance` (String) The ServiceNow instance identifier. It refers to the first part of your own ServiceNow URL. This field is mutually exclusive with the **url** field. You can only use one of them
 - `legacy_id` (String) The ID of these settings when referred to from resources requiring the REST API V1 keys
 - `password` (String, Sensitive) The password to the ServiceNow account

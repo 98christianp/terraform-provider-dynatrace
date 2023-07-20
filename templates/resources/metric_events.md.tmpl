@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_metric_events Resource - terraform-provider-dynatrace"
+subcategory: "Anomaly Detection"
 description: |-
   The resource `dynatrace_metric_events` covers configuration for custom metric events
 ---
 
 # dynatrace_metric_events (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -21,7 +24,7 @@ The full documentation of the export feature is available [here](https://registr
 
 ## Resource Example Usage
 
-{{ tffile "test_data/anomalies/metrics/example_a.tf" }}
+{{ tffile "dynatrace/api/builtin/anomalydetection/metricevents/testdata/terraform/example_a.tf" }}
 
 {{ .SchemaMarkdown | trimspace }}
  

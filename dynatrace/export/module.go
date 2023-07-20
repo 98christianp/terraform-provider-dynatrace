@@ -31,7 +31,6 @@ import (
 
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/shutdown"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/version"
 	"github.com/spf13/afero"
@@ -56,7 +55,23 @@ func (me *Module) IsReferencedAsDataSource() bool {
 	if _, found := me.Environment.ResArgs[string(me.Type)]; found {
 		return false
 	}
-	return me.Type == ResourceTypes.ManagementZoneV2 || me.Type == ResourceTypes.Alerting || me.Type == ResourceTypes.RequestAttribute || me.Type == ResourceTypes.WebApplication || me.Type == ResourceTypes.RequestNaming || me.Type == ResourceTypes.JSONDashboard || me.Type == ResourceTypes.SLO || me.Type == ResourceTypes.CalculatedServiceMetric || me.Type == ResourceTypes.MobileApplication
+	return me.Type == ResourceTypes.ManagementZoneV2 ||
+		me.Type == ResourceTypes.Alerting ||
+		me.Type == ResourceTypes.RequestAttribute ||
+		me.Type == ResourceTypes.WebApplication ||
+		me.Type == ResourceTypes.RequestNaming ||
+		me.Type == ResourceTypes.JSONDashboard ||
+		me.Type == ResourceTypes.SLO ||
+		me.Type == ResourceTypes.CalculatedServiceMetric ||
+		me.Type == ResourceTypes.MobileApplication ||
+		me.Type == ResourceTypes.BrowserMonitor ||
+		me.Type == ResourceTypes.Credentials ||
+		me.Type == ResourceTypes.SyntheticLocation ||
+		me.Type == ResourceTypes.FailureDetectionParameters ||
+		me.Type == ResourceTypes.UpdateWindows ||
+		me.Type == ResourceTypes.AWSCredentials ||
+		me.Type == ResourceTypes.AzureCredentials ||
+		me.Type == ResourceTypes.IAMGroup
 }
 
 func (me *Module) DataSource(id string) *DataSource {
@@ -145,7 +160,11 @@ func (me *Module) Resource(id string) *Resource {
 	return res
 }
 
+var mkdirMutex = new(sync.Mutex)
+
 func (me *Module) MkdirAll(flawed bool) error {
+	mkdirMutex.Lock()
+	defer mkdirMutex.Unlock()
 	if flawed {
 		return os.MkdirAll(me.GetFlawedFolder(), os.ModePerm)
 	}
@@ -294,32 +313,28 @@ func (me *Module) WriteDataSourcesFile() (err error) {
 	if me.IsReferencedAsDataSource() {
 		return nil
 	}
-	if me.Descriptor.Parent != nil {
+	if !me.Environment.ChildResourceOverride && me.Descriptor.Parent != nil {
 		return nil
 	}
 	if me.Environment.Flags.Flat {
 		return nil
 	}
 	fmt.Println("- " + me.Type)
-	var datasourcesFile *os.File
-	if datasourcesFile, err = me.CreateFile("___datasources___.tf"); err != nil {
-		return err
-	}
+	buf := new(bytes.Buffer)
 	dsm := map[string]string{}
 	for _, v := range me.Resources {
 		for _, referencedResource := range v.ResourceReferences {
+			if !me.Environment.Module(referencedResource.Type).IsReferencedAsDataSource() {
+				continue
+			}
 			if asDS := AsDataSource(referencedResource); len(asDS) > 0 {
 				dsm[asDS] = asDS
 			}
 		}
 	}
 	for ds := range dsm {
-		datasourcesFile.Write([]byte("\n" + ds))
+		buf.Write([]byte("\n" + ds))
 	}
-	defer func() {
-		datasourcesFile.Close()
-		format(datasourcesFile.Name(), true)
-	}()
 	dataSourceIDs := []string{}
 	for dataSourceID := range me.DataSources {
 		dataSourceIDs = append(dataSourceIDs, dataSourceID)
@@ -329,23 +344,84 @@ func (me *Module) WriteDataSourcesFile() (err error) {
 		dataSource := me.DataSources[dataSourceID]
 		dataSourceName := dataSource.Name
 		dd, _ := json.Marshal(dataSourceName)
-		if _, err = datasourcesFile.WriteString(fmt.Sprintf(`
-		data "dynatrace_entity" "%s" {
-			type = "%s"
-			name = %s
-		}`, dataSourceID, dataSource.Type, string(dd))); err != nil {
-			return err
+		if dataSourceID == "tenant" {
+			if _, err = buf.WriteString(`
+			data "dynatrace_tenant" "tenant" {
+			}`); err != nil {
+				return err
+			}
+		} else {
+			if _, err = buf.WriteString(fmt.Sprintf(`
+			data "dynatrace_entity" "%s" {
+				type = "%s"
+				name = %s
+			}`, dataSourceID, dataSource.Type, string(dd))); err != nil {
+				return err
+			}
 		}
 	}
+	data := buf.Bytes()
+	if len(data) > 0 {
+		var datasourcesFile *os.File
+		if datasourcesFile, err = me.CreateFile("___datasources___.tf"); err != nil {
+			return err
+		}
+		if _, err := datasourcesFile.Write(data); err != nil {
+			return err
+		}
+		defer func() {
+			datasourcesFile.Close()
+			format(datasourcesFile.Name(), true)
+		}()
+	}
+
 	return nil
 }
 
-func (me *Module) PurgeFolder() (err error) {
-	if err = os.RemoveAll(me.GetFolder()); err != nil {
-		return err
+func (me *Module) ProvideDataSources() (dsm map[string]string, err error) {
+	if me.IsReferencedAsDataSource() {
+		return map[string]string{}, nil
 	}
-	if err = os.RemoveAll(me.GetAttentionFolder()); err != nil {
-		return err
+	if !me.Environment.ChildResourceOverride && me.Descriptor.Parent != nil {
+		return map[string]string{}, nil
+	}
+	dsm = map[string]string{}
+	for _, v := range me.Resources {
+		for _, referencedResource := range v.ResourceReferences {
+			if asDS := AsDataSource(referencedResource); len(asDS) > 0 {
+				dsm[string(referencedResource.Type)+"."+referencedResource.ID] = asDS
+			}
+		}
+	}
+	dataSourceIDs := []string{}
+	for dataSourceID := range me.DataSources {
+		dataSourceIDs = append(dataSourceIDs, dataSourceID)
+	}
+	sort.Strings(dataSourceIDs)
+	for _, dataSourceID := range dataSourceIDs {
+		dataSource := me.DataSources[dataSourceID]
+		dataSourceName := dataSource.Name
+		dd, _ := json.Marshal(dataSourceName)
+		dsm["dynatrace_entity."+dataSource.Type+"."+string(dd)] = fmt.Sprintf(`data "dynatrace_entity" "%s" {
+			type = "%s"
+			name = %s
+		}`, dataSourceID, dataSource.Type, string(dd))
+	}
+	return dsm, nil
+}
+
+func (me *Module) PurgeFolder() (err error) {
+	if me.Environment.Flags.Flat {
+		for _, resource := range me.Resources {
+			os.Remove(resource.GetFile())
+		}
+	} else {
+		if err = os.RemoveAll(me.GetFolder()); err != nil {
+			return err
+		}
+		if err = os.RemoveAll(me.GetAttentionFolder()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -354,7 +430,7 @@ func (me *Module) WriteResourcesFile() (err error) {
 	if me.IsReferencedAsDataSource() {
 		return nil
 	}
-	if me.Descriptor.Parent != nil {
+	if !me.Environment.ChildResourceOverride && me.Descriptor.Parent != nil {
 		return nil
 	}
 	if me.Environment.Flags.Flat {
@@ -414,8 +490,11 @@ func (me *Module) RefersTo(resource *Resource) bool {
 
 func (me *Module) GetChildResources() []*Resource {
 	resources := []*Resource{}
+	if me.Environment.ChildResourceOverride {
+		return resources
+	}
 	for _, resource := range me.Resources {
-		if resource.Status == ResourceStati.PostProcessed && resource.Parent != nil {
+		if resource.Status == ResourceStati.PostProcessed && resource.GetParent() != nil {
 			resources = append(resources, resource)
 		}
 	}
@@ -589,240 +668,79 @@ func (me *Module) Discover() error {
 	return nil
 }
 
-func (me *Module) ExecuteImportV1() (err error) {
-	if !me.Environment.Flags.ImportState {
-		return nil
-	}
-	if me.Status.IsOneOf(ModuleStati.Imported, ModuleStati.Erronous, ModuleStati.Untouched) {
-		return nil
-	}
-	referencedResourceTypes := me.GetReferencedResourceTypes()
-	if len(referencedResourceTypes) > 0 {
-		for _, resourceType := range referencedResourceTypes {
-			if err := me.Environment.Module(resourceType).ExecuteImportV1(); err != nil {
-				return err
-			}
-		}
-	}
-	length := 0
-	for _, resource := range me.Resources {
-		if !resource.Status.IsOneOf(ResourceStati.PostProcessed) {
-			continue
-		}
-		length++
-	}
-	fmt.Printf("  - %s (0 of %d)", me.Type, length)
-	exePath, _ := exec.LookPath("terraform")
-	const ClearLine = "\033[2K"
-	idx := 0
-	for _, resource := range me.Resources {
-		if !resource.Status.IsOneOf(ResourceStati.PostProcessed) {
-			continue
-		}
-		statement := fmt.Sprintf("module.%s.%s.%s", me.Type.Trim(), me.Type, resource.UniqueName)
-		if me.Environment.Flags.Flat {
-			statement = fmt.Sprintf("%s.%s", me.Type, resource.UniqueName)
-		}
-		// fmt.Println("terraform", "import", statement, resource.ID, me.Environment.OutputFolder)
-		cmd := exec.Command(
-			exePath,
-			"import",
-			"-lock=false",
-			"-input=false",
-			"-no-color",
-			statement,
-			resource.ID,
-		)
-		var outb, errb bytes.Buffer
-		cmd.Stdout = &outb
-		cmd.Stderr = &errb
-		cmd.Dir = me.Environment.OutputFolder
-		var cacheFolder string
-		if cacheFolder, err = filepath.Abs(cache.GetCacheFolder()); err != nil {
-			return err
-		}
-		cmd.Env = []string{
-			// "TF_LOG_PROVIDER=INFO",
-			"DYNATRACE_ENV_URL=" + me.Environment.Credentials.URL,
-			"DYNATRACE_API_TOKEN=" + me.Environment.Credentials.Token,
-			"DT_CACHE_FOLDER=" + cacheFolder,
-			"CACHE_OFFLINE_MODE=true",
-			"DT_CACHE_DELETE_ON_LAUNCH=false",
-			"DT_NO_CACHE_CLEANUP=true",
-			"DT_TERRAFORM_IMPORT=true",
-		}
-		cmd.Start()
-		if err := cmd.Wait(); err != nil {
-			fmt.Println("out:", outb.String())
-			fmt.Println("err:", errb.String())
-		}
-		idx++
-		fmt.Print(ClearLine)
-		fmt.Print("\r")
-		fmt.Printf("  - %s (%d of %d)", me.Type, idx, length)
-	}
-	fmt.Print(ClearLine)
-	fmt.Print("\r")
-	fmt.Printf("  - %s\n", me.Type)
-	me.Status = ModuleStati.Imported
-	return nil
+type resources []resource
+
+type resource struct {
+	Module    string     `json:"module"`
+	Mode      string     `json:"mode"`
+	Type      string     `json:"type"`
+	Name      string     `json:"name"`
+	Provider  string     `json:"provider"`
+	Instances []instance `json:"instances"`
 }
 
-func (me *Module) ExecuteImportV2(fs afero.Fs, seedType string) (stateObject interface{}, err error) {
+type instance struct {
+	Attributes          attrs         `json:"attributes"`
+	SchemaVersion       int           `json:"schema_version"`
+	SensitiveAttributes []interface{} `json:"sensitive_attributes"`
+	Private             string        `json:"private"`
+}
+type attrs struct {
+	Id string `json:"id"`
+}
+
+func (me *Module) ExecuteImportV2(fs afero.Fs) (resList resources, err error) {
 	if !me.Environment.Flags.ImportStateV2 {
 		return nil, nil
 	}
 	if me.Status.IsOneOf(ModuleStati.Imported, ModuleStati.Erronous, ModuleStati.Untouched) {
 		return nil, nil
 	}
-	/*
-		referencedResourceTypes := me.GetReferencedResourceTypes()
-		if len(referencedResourceTypes) > 0 {
-			for _, resourceType := range referencedResourceTypes {
-				_, err := me.Environment.Module(resourceType).ExecuteImportV2(fs, seedType+me.Type.Trim())
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	*/
-	length := 0
-	for _, resource := range me.Resources {
-		if !resource.Status.IsOneOf(ResourceStati.PostProcessed) {
+
+	uniqueNameExists := map[string]bool{}
+
+	resList = make(resources, 0, len(me.Resources))
+
+	for _, res := range me.Resources {
+		if !res.Status.IsOneOf(ResourceStati.PostProcessed) {
 			continue
 		}
-		length++
-	}
-	fmt.Printf("  - %s (0 of %d)", me.Type, length)
-	exePath, _ := exec.LookPath("terraform")
-	const ClearLine = "\033[2K"
-
-	itemCount := len(me.Resources)
-	channel := make(chan *Resource, itemCount)
-	mutex := sync.Mutex{}
-	waitGroup := sync.WaitGroup{}
-	maxThreads := 10
-	if maxThreads > itemCount {
-		maxThreads = itemCount
-	}
-	waitGroup.Add(maxThreads)
-	errs := []error{}
-
-	idx := -1
-
-	getStateFileName := func(stateIdx int) string {
-		return fmt.Sprintf("%s%s%s%s%v%s", "state-", seedType, me.Type.Trim(), "-", stateIdx, ".tfstate")
-	}
-	fmt.Print("Exporting without offline mode for a more complete export, will need to fix some issues are go back to offline mode, see this env var: CACHE_OFFLINE_MODE")
-
-	processResource := func(resource *Resource, curIdx int) {
-		if !resource.Status.IsOneOf(ResourceStati.PostProcessed) {
-			return
+		if uniqueNameExists[res.UniqueName] {
+			fmt.Println("ERROR: Duplicate UniqueName for ", string(me.Type), res.UniqueName)
+			continue
 		}
-		statement := fmt.Sprintf("module.%s.%s.%s", me.Type.Trim(), me.Type, resource.UniqueName)
-		if me.Environment.Flags.Flat {
-			statement = fmt.Sprintf("%s.%s", me.Type, resource.UniqueName)
+		uniqueNameExists[res.UniqueName] = true
+
+		providerSource := os.Getenv("DYNATRACE_PROVIDER_SOURCE")
+		if len(providerSource) == 0 {
+			providerSource = `provider["registry.terraform.io/dynatrace-oss/dynatrace"]`
+		} else {
+			providerSource = fmt.Sprintf(`provider["%s"]`, providerSource)
 		}
-		// fmt.Println("terraform", "import", statement, resource.ID, me.Environment.OutputFolder)
-		cmd := exec.Command(
-			exePath,
-			"import",
-			"-lock=false",
-			"-input=false",
-			"-no-color",
-			fmt.Sprintf("%s%s", "-state=", getStateFileName(curIdx)),
-			statement,
-			resource.ID,
-		)
-		var outb, errb bytes.Buffer
-		cmd.Stdout = &outb
-		cmd.Stderr = &errb
-		cmd.Dir = me.Environment.OutputFolder
-		var cacheFolder string
-		if cacheFolder, err = filepath.Abs(cache.GetCacheFolder()); err != nil {
-			mutex.Lock()
-			errs = append(errs, err)
-			mutex.Unlock()
-			return
-		}
-		cmd.Env = []string{
-			// "TF_LOG_PROVIDER=INFO",
-			"DYNATRACE_ENV_URL=" + me.Environment.Credentials.URL,
-			"DYNATRACE_API_TOKEN=" + me.Environment.Credentials.Token,
-			"DT_CACHE_FOLDER=" + cacheFolder,
-			// "CACHE_OFFLINE_MODE=true",
-			"DT_CACHE_DELETE_ON_LAUNCH=false",
-			"DT_NO_CACHE_CLEANUP=true",
-			"DT_TERRAFORM_IMPORT=true",
-		}
-		cmd.Start()
-		if err := cmd.Wait(); err != nil {
-			fmt.Println("out:", outb.String())
-			fmt.Println("err:", errb.String())
-		}
-		fmt.Print(ClearLine)
-		fmt.Print("\r")
-		fmt.Printf("  - %s (%d of %d)", me.Type, curIdx, length)
+
+		resList = append(resList, resource{
+			Module: fmt.Sprintf("module.%s", me.Type.Trim()),
+			Mode:   "managed",
+			Type:   string(me.Type),
+			Name:   res.UniqueName,
+			// Provider: `provider["dynatrace.com/com/dynatrace"]`,
+			Provider: providerSource,
+			Instances: []instance{
+				{
+					Attributes: attrs{
+						Id: res.ID,
+					},
+					SchemaVersion:       0,
+					SensitiveAttributes: make([]any, 0),
+					Private:             "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+				},
+			},
+		})
 	}
 
-	for i := 0; i < maxThreads; i++ {
-
-		go func() {
-
-			for {
-				resource, ok := <-channel
-				if shutdown.System.Stopped() {
-					ok = false
-				}
-				if !ok {
-					waitGroup.Done()
-					return
-				}
-				mutex.Lock()
-				idx++
-				mutex.Unlock()
-				processResource(resource, idx)
-			}
-		}()
-
-	}
-	for _, resource := range me.Resources {
-		channel <- resource
-	}
-
-	close(channel)
-	waitGroup.Wait()
-
-	if shutdown.System.Stopped() {
-		return nil, fmt.Errorf("Import was stopped: %v", errs)
-	}
-
-	if len(errs) >= 1 {
-		return nil, fmt.Errorf("Error during state import: %v", errs)
-	}
-
-	fmt.Print(ClearLine)
-	fmt.Print("\r")
-	fmt.Printf("  - %s\n", me.Type)
 	me.Status = ModuleStati.Imported
 
-	var newStateObject interface{}
-
-	for i := 0; i < itemCount; i++ {
-		fileName := fmt.Sprint(filepath.Join(me.Environment.OutputFolder, getStateFileName(i)))
-		rawData, err := afero.ReadFile(fs, fileName)
-		if err != nil {
-			fmt.Print("CC ERROR FINDING FILE WHEN IMPORTING: ", fileName)
-			return nil, nil
-			//return err
-		}
-		var stateObject interface{}
-		json.Unmarshal(rawData, &stateObject)
-
-		newStateObject = updateState(newStateObject, stateObject)
-	}
-
-	return newStateObject, nil
+	return resList, nil
 }
 
 func hide(v any) {}

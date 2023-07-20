@@ -6,14 +6,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/address"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/rest"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache/tar"
 )
 
 type GetV1 struct {
-	SchemaID string
-	ID       string
+	SchemaID        string
+	ServiceSchemaID string
+	ID              string
 }
 
 func (me *GetV1) Finish(v any) error {
@@ -32,7 +34,8 @@ func (me *GetV1) Finish(v any) error {
 		}
 		wrapper := struct {
 			Downloaded struct {
-				Value json.RawMessage `json:"value"`
+				ClassidID string          `json:"classicId,omitempty"`
+				Value     json.RawMessage `json:"value"`
 			} `json:"downloaded"`
 		}{}
 		if err := json.Unmarshal(data, &wrapper); err != nil {
@@ -41,6 +44,12 @@ func (me *GetV1) Finish(v any) error {
 		if err := json.Unmarshal(wrapper.Downloaded.Value, &v); err != nil {
 			return err
 		}
+
+		address.AddToOriginal(address.AddressOriginal{
+			TerraformSchemaID: me.ServiceSchemaID,
+			OriginalID:        wrapper.Downloaded.ClassidID,
+			OriginalSchemaID:  me.SchemaID,
+		})
 		return nil
 	}
 	return &rest.Error{Code: 404, Message: fmt.Sprintf("%s not found", me.ID)}
@@ -51,6 +60,9 @@ type ListV1 struct {
 }
 
 func (me *ListV1) Finish(v any) error {
+	if me.SchemaID == "synthetic-monitor" {
+		fmt.Println(me.SchemaID)
+	}
 	stubList := &api.StubList{Values: []*api.Stub{}}
 
 	tarFolder, _, err := tar.NewExisting(CACHE_FOLDER + "/" + strings.ReplaceAll(me.SchemaID, ":", ""))
@@ -72,6 +84,86 @@ func (me *ListV1) Finish(v any) error {
 	if err != nil {
 		return err
 	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ListMonitorsV1 struct {
+	Prefix string
+}
+
+func (me *ListMonitorsV1) Finish(v any) error {
+	stubList := &api.StubList{Values: []*api.Stub{}}
+
+	tarFolder, _, err := tar.NewExisting(CACHE_FOLDER + "/synthetic-monitor")
+	if err != nil {
+		return err
+	}
+
+	if tarFolder != nil {
+		stubs, err := tarFolder.List()
+		if err != nil {
+			return err
+		}
+
+		for _, stub := range stubs {
+			if strings.HasPrefix(stub.ID, me.Prefix) {
+				stubList.Values = append(stubList.Values, stub)
+			}
+		}
+	}
+
+	monitors := []any{}
+	if stubList != nil && len(stubList.Values) > 0 {
+		for _, stub := range stubList.Values {
+			monitors = append(monitors, map[string]any{"entityId": stub.ID, "name": stub.Name})
+		}
+	}
+	data, err := json.Marshal(map[string]any{"monitors": monitors})
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ListPrivateSyntheticLocationsV1 struct{}
+
+func (me *ListPrivateSyntheticLocationsV1) Finish(v any) error {
+	stubList := &api.StubList{Values: []*api.Stub{}}
+
+	tarFolder, _, err := tar.NewExisting(CACHE_FOLDER + "/synthetic-location")
+	if err != nil {
+		return err
+	}
+
+	if tarFolder != nil {
+		stubs, err := tarFolder.List()
+		if err != nil {
+			return err
+		}
+
+		for _, stub := range stubs {
+			stubList.Values = append(stubList.Values, stub)
+		}
+	}
+
+	locations := []any{}
+	if stubList != nil && len(stubList.Values) > 0 {
+		for _, stub := range stubList.Values {
+			locations = append(locations, map[string]any{"entityId": stub.ID, "name": stub.Name})
+		}
+	}
+	data, err := json.Marshal(map[string]any{"locations": locations})
+	if err != nil {
+		return err
+	}
+
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}

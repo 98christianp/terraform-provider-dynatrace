@@ -4,8 +4,8 @@ import (
 	"sort"
 
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api"
-	managementzonessrv "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/managementzones"
-	managementzones "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/managementzones/settings"
+	managementzonessrv "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/managementzones"
+	managementzones "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/managementzones/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/config"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/logging"
@@ -51,9 +51,13 @@ func DataSourceMultiple() *schema.Resource {
 }
 
 func DataSourceReadMultiple(d *schema.ResourceData, m any) error {
-	service := cache.Read[*managementzones.Settings](managementzonessrv.Service(config.Credentials(m)), true)
+	creds, err := config.Credentials(m, config.CredValDefault)
+	if err != nil {
+		return err
+	}
+
+	service := cache.Read[*managementzones.Settings](managementzonessrv.Service(creds), true)
 	var stubs api.Stubs
-	var err error
 	if stubs, err = service.List(); err != nil {
 		return err
 	}

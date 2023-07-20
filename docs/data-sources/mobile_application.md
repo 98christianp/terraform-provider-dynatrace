@@ -1,6 +1,7 @@
 ---
 layout: ""
 page_title: "dynatrace_mobile_application Data Source - terraform-provider-dynatrace"
+subcategory: "Mobile & Custom Applications"
 description: |-
   The data source `dynatrace_mobile_application` covers queries for a mobile application
 ---
@@ -9,7 +10,7 @@ description: |-
 
 The `dynatrace_mobile_application` data source allows the mobile application ID to be retrieved by its name.
 
-- `name` (String) - The name of the dashboard
+- `name` (String) - The name of the mobile application
 
 ## Example Usage
 

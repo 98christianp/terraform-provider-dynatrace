@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_service_anomalies_v2 Resource - terraform-provider-dynatrace"
+subcategory: "Anomaly Detection"
 description: |-
   The resource `dynatrace_service_anomalies_v2` covers configuration for service anomaly detection
 ---
 
 # dynatrace_service_anomalies_v2 (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -22,25 +25,8 @@ The full documentation of the export feature is available [here](https://registr
 ## Resource Example Usage
 
 ```terraform
-resource "dynatrace_service_anomalies_v2" "SERVICE-XXXXXXXXXXXXXXXX" {
-  scope = "SERVICE-XXXXXXXXXXXXXXXX"
-  response_time {
-    enabled        = true
-    detection_mode = "fixed"
-    fixed_detection {
-      sensitivity = "high"
-      over_alerting_protection {
-        minutes_abnormal_state = 1
-        requests_per_minute    = 10
-      }
-      response_time_all {
-        degradation_milliseconds = 100
-      }
-      response_time_slowest {
-        slowest_degradation_milliseconds = 1000
-      }
-    }
-  }
+resource "dynatrace_service_anomalies_v2" "#name#" {
+  scope = "SERVICE-1234567890000000"
   failure_rate {
     enabled        = true
     detection_mode = "fixed"
@@ -63,6 +49,23 @@ resource "dynatrace_service_anomalies_v2" "SERVICE-XXXXXXXXXXXXXXXX" {
     load_spike_percent     = 200
     minutes_abnormal_state = 1
   }
+  response_time {
+    enabled        = true
+    detection_mode = "fixed"
+    fixed_detection {
+      sensitivity = "high"
+      over_alerting_protection {
+        minutes_abnormal_state = 1
+        requests_per_minute    = 10
+      }
+      response_time_all {
+        degradation_milliseconds = 100
+      }
+      response_time_slowest {
+        slowest_degradation_milliseconds = 1000
+      }
+    }
+  }
 }
 ```
 
@@ -75,7 +78,10 @@ resource "dynatrace_service_anomalies_v2" "SERVICE-XXXXXXXXXXXXXXXX" {
 - `load_drops` (Block List, Min: 1, Max: 1) Alert if the observed load is lower than the expected load by a specified margin for a specified amount of time: (see [below for nested schema](#nestedblock--load_drops))
 - `load_spikes` (Block List, Min: 1, Max: 1) Alert if the observed load exceeds the expected load by a specified margin for a specified amount of time: (see [below for nested schema](#nestedblock--load_spikes))
 - `response_time` (Block List, Min: 1, Max: 1) Response time (see [below for nested schema](#nestedblock--response_time))
-- `scope` (String) The scope for the service anomaly detection
+
+### Optional
+
+- `scope` (String) The scope of this setting (SERVICE_METHOD, SERVICE, HOST_GROUP). Omit this property if you want to cover the whole environment.
 
 ### Read-Only
 
@@ -86,13 +92,13 @@ resource "dynatrace_service_anomalies_v2" "SERVICE-XXXXXXXXXXXXXXXX" {
 
 Required:
 
-- `enabled` (Boolean) Detect increases in failure rate
+- `enabled` (Boolean) This setting is enabled (`true`) or disabled (`false`)
 
 Optional:
 
-- `auto_detection` (Block List, Max: 1) . Alert if the percentage of failing service calls increases by **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--failure_rate--auto_detection))
-- `detection_mode` (String) Detection mode for increases in failure rate
-- `fixed_detection` (Block List, Max: 1) . Alert if a given failure rate is exceeded during any 5-minute-period (see [below for nested schema](#nestedblock--failure_rate--fixed_detection))
+- `auto_detection` (Block List, Max: 1) Alert if the percentage of failing service calls increases by **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--failure_rate--auto_detection))
+- `detection_mode` (String) Possible Values: `Auto`, `Fixed`
+- `fixed_detection` (Block List, Max: 1) Alert if a given failure rate is exceeded during any 5-minute-period (see [below for nested schema](#nestedblock--failure_rate--fixed_detection))
 
 <a id="nestedblock--failure_rate--auto_detection"></a>
 ### Nested Schema for `failure_rate.auto_detection`
@@ -119,8 +125,8 @@ Required:
 Required:
 
 - `over_alerting_protection` (Block List, Min: 1, Max: 1) Avoid over-alerting (see [below for nested schema](#nestedblock--failure_rate--fixed_detection--over_alerting_protection))
-- `sensitivity` (String) Sensitivity
-- `threshold` (Number) Threshold
+- `sensitivity` (String) Possible Values: `High`, `Low`, `Medium`
+- `threshold` (Number) no documentation available
 
 <a id="nestedblock--failure_rate--fixed_detection--over_alerting_protection"></a>
 ### Nested Schema for `failure_rate.fixed_detection.over_alerting_protection`
@@ -138,7 +144,7 @@ Required:
 
 Required:
 
-- `enabled` (Boolean) Detect service load drops
+- `enabled` (Boolean) This setting is enabled (`true`) or disabled (`false`)
 
 Optional:
 
@@ -151,7 +157,7 @@ Optional:
 
 Required:
 
-- `enabled` (Boolean) Detect service load spikes
+- `enabled` (Boolean) This setting is enabled (`true`) or disabled (`false`)
 
 Optional:
 
@@ -164,13 +170,13 @@ Optional:
 
 Required:
 
-- `enabled` (Boolean) Detect response time degradations
+- `enabled` (Boolean) This setting is enabled (`true`) or disabled (`false`)
 
 Optional:
 
-- `auto_detection` (Block List, Max: 1) No documentation available (see [below for nested schema](#nestedblock--response_time--auto_detection))
-- `detection_mode` (String) Detection mode for response time degradations
-- `fixed_detection` (Block List, Max: 1) No documentation available (see [below for nested schema](#nestedblock--response_time--fixed_detection))
+- `auto_detection` (Block List, Max: 1) no documentation available (see [below for nested schema](#nestedblock--response_time--auto_detection))
+- `detection_mode` (String) Possible Values: `Auto`, `Fixed`
+- `fixed_detection` (Block List, Max: 1) no documentation available (see [below for nested schema](#nestedblock--response_time--fixed_detection))
 
 <a id="nestedblock--response_time--auto_detection"></a>
 ### Nested Schema for `response_time.auto_detection`
@@ -178,8 +184,8 @@ Optional:
 Required:
 
 - `over_alerting_protection` (Block List, Min: 1, Max: 1) Avoid over-alerting (see [below for nested schema](#nestedblock--response_time--auto_detection--over_alerting_protection))
-- `response_time_all` (Block List, Min: 1, Max: 1) All requests. Alert if the average response time of all requests degrades beyond **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--response_time--auto_detection--response_time_all))
-- `response_time_slowest` (Block List, Min: 1, Max: 1) Slowest 10%. Alert if the average response time of the slowest 10% of requests degrades beyond **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--response_time--auto_detection--response_time_slowest))
+- `response_time_all` (Block List, Min: 1, Max: 1) Alert if the median response time of all requests degrades beyond **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--response_time--auto_detection--response_time_all))
+- `response_time_slowest` (Block List, Min: 1, Max: 1) Alert if the response time of the slowest 10% of requests degrades beyond **both** the absolute and relative thresholds: (see [below for nested schema](#nestedblock--response_time--auto_detection--response_time_slowest))
 
 <a id="nestedblock--response_time--auto_detection--over_alerting_protection"></a>
 ### Nested Schema for `response_time.auto_detection.over_alerting_protection`
@@ -215,9 +221,9 @@ Required:
 Required:
 
 - `over_alerting_protection` (Block List, Min: 1, Max: 1) Avoid over-alerting (see [below for nested schema](#nestedblock--response_time--fixed_detection--over_alerting_protection))
-- `response_time_all` (Block List, Min: 1, Max: 1) All requests. Alert if the average response time of all requests degrades beyond this threshold: (see [below for nested schema](#nestedblock--response_time--fixed_detection--response_time_all))
-- `response_time_slowest` (Block List, Min: 1, Max: 1) Slowest 10%. Alert if the average response time of the slowest 10% of requests degrades beyond this threshold: (see [below for nested schema](#nestedblock--response_time--fixed_detection--response_time_slowest))
-- `sensitivity` (String) Sensitivity
+- `response_time_all` (Block List, Min: 1, Max: 1) Alert if the median response time of all requests degrades beyond this threshold: (see [below for nested schema](#nestedblock--response_time--fixed_detection--response_time_all))
+- `response_time_slowest` (Block List, Min: 1, Max: 1) Alert if the response time of the slowest 10% of requests degrades beyond this threshold: (see [below for nested schema](#nestedblock--response_time--fixed_detection--response_time_slowest))
+- `sensitivity` (String) Possible Values: `High`, `Low`, `Medium`
 
 <a id="nestedblock--response_time--fixed_detection--over_alerting_protection"></a>
 ### Nested Schema for `response_time.fixed_detection.over_alerting_protection`

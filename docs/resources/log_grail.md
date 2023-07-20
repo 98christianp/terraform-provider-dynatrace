@@ -1,13 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_log_grail Resource - terraform-provider-dynatrace"
+subcategory: "Log Monitoring"
 description: |-
   The resource `dynatrace_log_grail` covers configuration for log powered by Grail
 ---
 
 # dynatrace_log_grail (Resource)
 
--> This resource is excluded from the default export, please review the Dynatrace documentation below regarding this feature.
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -27,6 +28,7 @@ The full documentation of the export feature is available [here](https://registr
 ### Required
 
 - `activated` (Boolean) Activate logs powered by Grail.
+- `parallel_ingest_period` (String) Possible Values: `NONE`, `SEVEN_DAYS`, `THIRTY_FIVE_DAYS`
 
 ### Read-Only
 

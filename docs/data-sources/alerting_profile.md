@@ -1,6 +1,7 @@
 ---
 layout: ""
 page_title: "dynatrace_alerting_profile Data Source - terraform-provider-dynatrace"
+subcategory: "Alerting"
 description: |-
   The data source `dynatrace_alerting_profile` covers queries for an Alerting Profile with the given name
 ---
@@ -11,7 +12,6 @@ The Alerting Profile queries for an Alerting Profile that has a specified name. 
 The ID of this Data Resource aligns with the IDs used by the Dynatrace Settings 2.0 API.
 
 ## Example Usage
-
 
 ```terraform
 data "dynatrace_alerting_profile" "Default" {

@@ -1,13 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_web_application Resource - terraform-provider-dynatrace"
+subcategory: "Web Applications"
 description: |-
   The resource `dynatrace_web_application` covers configuration for web applications
 ---
 
 # dynatrace_web_application (Resource)
 
--> Certain field(s) of this resource has overlap with `dynatrace_web_app_enablement`, `dynatrace_session_replay_resource_capture`, `dynatrace_web_app_key_performance_load`, `dynatrace_web_app_key_performance_xhr`, and `dynatrace_web_app_key_performance_custom`; please review the schema for additional information.
+-> This resource requires the API token scopes **Read configuration** (`ReadConfig`) and **Write configuration** (`WriteConfig`)
 
 ## Dynatrace Documentation
 
@@ -23,7 +24,7 @@ The full documentation of the export feature is available [here](https://registr
 
 ## Resource Example Usage
 
-{{ tffile "test_data/applications/web/example_a.tf" }}
+{{ tffile "dynatrace/api/v1/config/applications/web/testdata/terraform/example_a.tf" }}
 
 {{ .SchemaMarkdown | trimspace }}
  

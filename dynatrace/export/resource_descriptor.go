@@ -21,10 +21,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/automation/workflows"
+	ddupool "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/accounting/ddulimit"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/activegatetoken"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/alerting/connectivityalerts"
+	alerting "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/alerting/profile"
 	database_anomalies_v2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/databases"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/diskrules"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/frequentissues"
 	aws_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/infrastructure/aws"
 	disk_anomalies_v2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/infrastructure/disks"
 	disk_specific_anomalies_v2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/infrastructure/disks/perdiskoverride"
@@ -35,19 +39,23 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/kubernetes/node"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/kubernetes/pvc"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/kubernetes/workload"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/metricevents"
 	custom_app_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/custom"
 	custom_app_crash_rate "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/custom/crashrate"
 	mobile_app_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/mobile"
 	mobile_app_crash_rate "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/mobile/crashrate"
 	web_app_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/rum/web"
+	service_anomalies_v2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/anomalydetection/services"
 	apidetection "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/apis/detectionrules"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/auditlog"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/availability/processgroupalerting"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/bizevents/http/incoming"
 	bizevents_buckets "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/bizevents/processing/buckets"
 	bizevents_metrics "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/bizevents/processing/metrics"
 	bizevents_processing "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/bizevents/processing/pipelines"
 	cloudfoundryv2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/cloud/cloudfoundry"
 	kubernetesv2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/cloud/kubernetes"
+	kubernetesmonitoring "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/cloud/kubernetes/monitoring"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/builtinmonitoringrule"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/monitoringrule"
 	containertechnology "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/container/technology"
@@ -63,6 +71,7 @@ import (
 	oneagentupdates "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/deployment/oneagent/updates"
 	diskanalytics "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/disk/analytics/extension"
 	diskoptions "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/disk/options"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/dtjavascriptruntime/allowedoutboundconnections"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/eec/local"
 	eecremote "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/eec/remote"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/eulasettings"
@@ -71,6 +80,9 @@ import (
 	hostmonitoring "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/host/monitoring"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/host/monitoring/aixkernelextension"
 	hostprocessgroupmonitoring "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/host/processgroups/monitoringstate"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/ibmmq/imsbridges"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/ibmmq/queuemanagers"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/ibmmq/queuesharinggroup"
 	issuetracking "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/issuetracking/integration"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/logmonitoring/customlogsourcesettings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/logmonitoring/logagentconfiguration"
@@ -83,6 +95,7 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/logmonitoring/schemalesslogmetric"
 	sensitivedatamasking "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/logmonitoring/sensitivedatamaskingsettings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/logmonitoring/timestampconfiguration"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/mainframe/mqfilters"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/mainframe/txmonitoring"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/mainframe/txstartfilters"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/metric/metadata"
@@ -103,12 +116,26 @@ import (
 	slov2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/monitoring/slo"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/monitoring/slo/normalization"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/nettracer/traffic"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/networkzones"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/oneagent/features"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/opentelemetrymetrics"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/osservicesmonitoring"
 	ownership_config "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/ownership/config"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/ownership/teams"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/preferences/privacy"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/ansible"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/email"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/jira"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/opsgenie"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/pagerduty"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/servicenow"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/slack"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/trello"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/victorops"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/webhook"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/problem/notifications/xmatters"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/process/builtinprocessmonitoringrule"
 	processmonitoring "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/process/monitoring"
 	customprocessmonitoring "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/process/monitoring/custom"
 	processavailability "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/processavailability"
@@ -119,6 +146,7 @@ import (
 	processgroupsimpledetection "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/processgroup/simpledetectionrule"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/processvisibility"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/remote/environment"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/resourceattribute"
 	rumcustomenablement "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/custom/enablement"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/hostheaders"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/rum/ipdetermination"
@@ -148,7 +176,13 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/servicedetection/fullwebservice"
 	sessionreplaywebprivacy "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/sessionreplay/web/privacypreferences"
 	sessionreplayresourcecapture "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/sessionreplay/web/resourcecapturing"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/settings/keyrequests"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/settings/mutedrequests"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/span/attribute"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/span/capturing"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/span/contextpropagation"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/span/entrypoints"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/span/eventattribute"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/synthetic/availability"
 	browseroutagehandling "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/synthetic/browser/outagehandling"
 	browserperformancethresholds "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/synthetic/browser/performancethresholds"
@@ -160,6 +194,7 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/usability/analytics"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/useractioncustommetrics"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/usersettings"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/virtualization/vmware"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/iam/bindings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/iam/groups"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/iam/permissions"
@@ -172,40 +207,12 @@ import (
 	notificationsv1 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/notifications"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/requestnaming/order"
 	locations "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/synthetic/locations/private"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/alerting"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/anomalies/frequentissues"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/anomalies/metricevents"
-	service_anomalies_v2 "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/anomalies/services"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/availability/processgroupalerting"
-	ddupool "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/ddupool"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/ibmmq/filters"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/ibmmq/imsbridges"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/ibmmq/queuemanagers"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/ibmmq/queuesharinggroups"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/keyrequests"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/networkzones"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/ansible"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/email"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/jira"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/opsgenie"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/pagerduty"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/servicenow"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/slack"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/trello"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/victorops"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/webhook"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/notifications/xmatters"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/customdevice"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/slo"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/spans/attributes"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/spans/capture"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/spans/ctxprop"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/spans/entrypoints"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/spans/resattr"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 
-	v2managementzones "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/managementzones"
+	v2managementzones "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/managementzones"
 
 	application_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/anomalies/applications"
 	database_anomalies "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/anomalies/databaseservices"
@@ -231,10 +238,11 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/applications/web/errors"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/autotags"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/aws"
+	aws_services "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/aws/services"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/azure"
+	azure_services "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/azure/services"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/cloudfoundry"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/kubernetes"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/credentials/vault"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/customservices"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/dashboards/sharing"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/jsondashboards"
@@ -242,9 +250,10 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/requestnaming"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/synthetic/monitors/browser"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/synthetic/monitors/http"
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/credentials/vault"
 
+	v2maintenance "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/builtin/alerting/maintenancewindow"
 	calculated_service_metrics "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v1/config/metrics/calculated/service"
-	v2maintenance "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/maintenance"
 )
 
 func NewResourceDescriptor[T settings.Settings](fn func(credentials *settings.Credentials) settings.CRUDService[T], dependencies ...Dependency) ResourceDescriptor {
@@ -335,7 +344,15 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		aws.Service,
 		Dependencies.ID(ResourceTypes.AWSCredentials),
 	),
+	ResourceTypes.AWSService: NewResourceDescriptor(
+		aws_services.Service,
+		Dependencies.ID(ResourceTypes.AWSCredentials),
+	),
 	ResourceTypes.AzureCredentials: NewResourceDescriptor(azure.Service),
+	ResourceTypes.AzureService: NewResourceDescriptor(
+		azure_services.Service,
+		Dependencies.ID(ResourceTypes.AzureCredentials),
+	),
 	ResourceTypes.BrowserMonitor: NewResourceDescriptor(
 		browser.Service,
 		Dependencies.ID(ResourceTypes.SyntheticLocation),
@@ -348,7 +365,6 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		calculated_service_metrics.Service,
 		Dependencies.ManagementZone,
 		Dependencies.RequestAttribute,
-		Dependencies.ManagementZone,
 		Dependencies.Service,
 		Dependencies.Host,
 		Dependencies.HostGroup,
@@ -364,25 +380,25 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	}),
 	ResourceTypes.CustomAppAnomalies: NewResourceDescriptor(
 		custom_app_anomalies.Service,
+		Dependencies.ID(ResourceTypes.MobileApplication),
 		Coalesce(Dependencies.DeviceApplicationMethod),
-		Coalesce(Dependencies.CustomApplication),
 	),
 	ResourceTypes.CustomAppCrashRate: NewResourceDescriptor(
 		custom_app_crash_rate.Service,
-		Coalesce(Dependencies.CustomApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.MobileAppAnomalies: NewResourceDescriptor(
 		mobile_app_anomalies.Service,
 		Coalesce(Dependencies.DeviceApplicationMethod),
-		Coalesce(Dependencies.MobileApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.MobileAppCrashRate: NewResourceDescriptor(
 		mobile_app_crash_rate.Service,
-		Coalesce(Dependencies.MobileApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.WebAppAnomalies: NewResourceDescriptor(
 		web_app_anomalies.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 		Coalesce(Dependencies.ApplicationMethod),
 	),
 	ResourceTypes.CustomService: NewResourceDescriptor(customservices.Service),
@@ -436,7 +452,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		Dependencies.ID(ResourceTypes.Credentials),
 	),
 	ResourceTypes.HostNaming:   NewResourceDescriptor(host_naming.Service),
-	ResourceTypes.IBMMQFilters: NewResourceDescriptor(filters.Service),
+	ResourceTypes.IBMMQFilters: NewResourceDescriptor(mqfilters.Service),
 	ResourceTypes.IMSBridge:    NewResourceDescriptor(imsbridges.Service),
 	ResourceTypes.JiraNotification: NewResourceDescriptor(
 		jira.Service,
@@ -456,7 +472,10 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
 	),
 	ResourceTypes.ManagementZoneV2: NewResourceDescriptor(v2managementzones.Service),
-	ResourceTypes.MetricEvents:     NewResourceDescriptor(metricevents.Service),
+	ResourceTypes.MetricEvents: NewResourceDescriptor(
+		metricevents.Service,
+		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
+	),
 	ResourceTypes.MobileApplication: NewResourceDescriptor(
 		mobile.Service,
 		Dependencies.ID(ResourceTypes.RequestAttribute),
@@ -489,7 +508,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		requestnaming.Service,
 		Dependencies.RequestAttribute,
 	),
-	ResourceTypes.ResourceAttributes: NewResourceDescriptor(resattr.Service),
+	ResourceTypes.ResourceAttributes: NewResourceDescriptor(resourceattribute.Service),
 	ResourceTypes.ServiceAnomalies:   NewResourceDescriptor(service_anomalies.Service),
 	ResourceTypes.ServiceAnomaliesV2: NewResourceDescriptor(
 		service_anomalies_v2.Service,
@@ -512,9 +531,9 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
 		Dependencies.ID(ResourceTypes.CalculatedServiceMetric),
 	),
-	ResourceTypes.SpanAttribute:          NewResourceDescriptor(attributes.Service),
-	ResourceTypes.SpanCaptureRule:        NewResourceDescriptor(capture.Service),
-	ResourceTypes.SpanContextPropagation: NewResourceDescriptor(ctxprop.Service),
+	ResourceTypes.SpanAttribute:          NewResourceDescriptor(attribute.Service),
+	ResourceTypes.SpanCaptureRule:        NewResourceDescriptor(capturing.Service),
+	ResourceTypes.SpanContextPropagation: NewResourceDescriptor(contextpropagation.Service),
 	ResourceTypes.SpanEntryPoint:         NewResourceDescriptor(entrypoints.Service),
 	ResourceTypes.SyntheticLocation:      NewResourceDescriptor(locations.Service),
 	ResourceTypes.TrelloNotification: NewResourceDescriptor(
@@ -555,7 +574,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		notificationsv1.Service,
 		Dependencies.LegacyID(ResourceTypes.Alerting),
 	),
-	ResourceTypes.QueueSharingGroups: NewResourceDescriptor(queuesharinggroups.Service),
+	ResourceTypes.QueueSharingGroups: NewResourceDescriptor(queuesharinggroup.Service),
 	ResourceTypes.AlertingProfile: NewResourceDescriptor(
 		alertingv1.Service,
 		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
@@ -564,8 +583,16 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		order.Service,
 		Dependencies.ID(ResourceTypes.RequestNaming),
 	),
-	ResourceTypes.IAMUser:           NewResourceDescriptor(users.Service),
-	ResourceTypes.IAMGroup:          NewResourceDescriptor(groups.Service),
+	ResourceTypes.IAMUser: NewResourceDescriptor(
+		users.Service,
+		Dependencies.ID(ResourceTypes.IAMGroup),
+	),
+	ResourceTypes.IAMGroup: NewResourceDescriptor(
+		groups.Service,
+		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
+		Dependencies.ID(ResourceTypes.IAMPermission),
+		Dependencies.Tenant,
+	),
 	ResourceTypes.IAMPermission:     NewResourceDescriptor(permissions.Service),
 	ResourceTypes.IAMPolicy:         NewResourceDescriptor(policies.Service),
 	ResourceTypes.IAMPolicyBindings: NewResourceDescriptor(bindings.Service),
@@ -620,15 +647,15 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.RUMIPLocations: NewResourceDescriptor(ipmappings.Service),
 	ResourceTypes.CustomAppEnablement: NewResourceDescriptor(
 		rumcustomenablement.Service,
-		Coalesce(Dependencies.MobileApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.MobileAppEnablement: NewResourceDescriptor(
 		rummobileenablement.Service,
-		Coalesce(Dependencies.MobileApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.WebAppEnablement: NewResourceDescriptor(
 		rumwebenablement.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.RUMProcessGroup: NewResourceDescriptor(
 		rumprocessgroup.Service,
@@ -651,36 +678,36 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.LogMetrics:                  NewResourceDescriptor(schemalesslogmetric.Service),
 	ResourceTypes.BrowserMonitorPerformanceThresholds: NewResourceDescriptor(
 		browserperformancethresholds.Service,
-		Coalesce(Dependencies.SyntheticTest),
+		Dependencies.ID(ResourceTypes.BrowserMonitor),
 	),
 	ResourceTypes.HttpMonitorPerformanceThresholds: NewResourceDescriptor(
 		httpperformancethresholds.Service,
-		Coalesce(Dependencies.HttpCheck),
+		Dependencies.ID(ResourceTypes.HTTPMonitor),
 	),
 	ResourceTypes.HttpMonitorCookies: NewResourceDescriptor(
 		httpcookies.Service,
-		Coalesce(Dependencies.HttpCheck),
+		Dependencies.ID(ResourceTypes.HTTPMonitor),
 	),
 	ResourceTypes.SessionReplayWebPrivacy: NewResourceDescriptor(
 		sessionreplaywebprivacy.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.SessionReplayResourceCapture: NewResourceDescriptor(
 		sessionreplayresourcecapture.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.UsabilityAnalytics: NewResourceDescriptor(
 		analytics.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.SyntheticAvailability: NewResourceDescriptor(availability.Service),
 	ResourceTypes.BrowserMonitorOutageHandling: NewResourceDescriptor(
 		browseroutagehandling.Service,
-		Coalesce(Dependencies.SyntheticTest),
+		Dependencies.ID(ResourceTypes.BrowserMonitor),
 	),
 	ResourceTypes.HttpMonitorOutageHandling: NewResourceDescriptor(
 		httpoutagehandling.Service,
-		Coalesce(Dependencies.HttpCheck),
+		Dependencies.ID(ResourceTypes.HTTPMonitor),
 	),
 	ResourceTypes.CloudAppWorkloadDetection:      NewResourceDescriptor(workloaddetection.Service),
 	ResourceTypes.MainframeTransactionMonitoring: NewResourceDescriptor(txmonitoring.Service),
@@ -737,8 +764,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.RUMIPDetermination: NewResourceDescriptor(ipdetermination.Service),
 	ResourceTypes.MobileAppRequestErrors: NewResourceDescriptor(
 		mobilerequesterrors.Service,
-		Coalesce(Dependencies.MobileApplication),
-		Coalesce(Dependencies.CustomApplication),
+		Dependencies.ID(ResourceTypes.MobileApplication),
 	),
 	ResourceTypes.TransactionStartFilters: NewResourceDescriptor(txstartfilters.Service),
 	ResourceTypes.OneAgentFeatures: NewResourceDescriptor(
@@ -755,7 +781,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.SLONormalization:       NewResourceDescriptor(normalization.Service),
 	ResourceTypes.DataPrivacy: NewResourceDescriptor(
 		privacy.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.ServiceFailure: NewResourceDescriptor(
 		generalparameters.Service,
@@ -822,11 +848,11 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.RemoteEnvironments: NewResourceDescriptor(environment.Service),
 	ResourceTypes.WebAppCustomErrors: NewResourceDescriptor(
 		webappcustomerrors.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.WebAppRequestErrors: NewResourceDescriptor(
 		webapprequesterrors.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.UserSettings:               NewResourceDescriptor(usersettings.Service),
 	ResourceTypes.DashboardsGeneral:          NewResourceDescriptor(dashboardsgeneral.Service),
@@ -871,7 +897,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.WebAppJavascriptVersion: NewResourceDescriptor(customrumjavascriptversion.Service),
 	ResourceTypes.WebAppJavascriptUpdates: NewResourceDescriptor(
 		rumjavascriptupdates.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.OpenTelemetryMetrics: NewResourceDescriptor(opentelemetrymetrics.Service),
 	ResourceTypes.ActiveGateUpdates: NewResourceDescriptor(
@@ -894,7 +920,7 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.LogCustomSource: NewResourceDescriptor(customlogsourcesettings.Service),
 	ResourceTypes.ApplicationDetectionV2: NewResourceDescriptor(
 		appdetection.Service,
-		Coalesce(Dependencies.Application),
+		Dependencies.ID(ResourceTypes.WebApplication),
 	),
 	ResourceTypes.Kubernetes: NewResourceDescriptor(
 		kubernetesv2.Service,
@@ -909,7 +935,6 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 	ResourceTypes.VMwareAnomalies: NewResourceDescriptor(vmware_anomalies.Service),
 	ResourceTypes.SLOV2: NewResourceDescriptor(
 		slov2.Service,
-		Dependencies.ManagementZone,
 		Dependencies.LegacyID(ResourceTypes.ManagementZoneV2),
 		Dependencies.ID(ResourceTypes.CalculatedServiceMetric),
 	),
@@ -941,47 +966,67 @@ var AllResources = map[ResourceType]ResourceDescriptor{
 		xhractions.Service,
 		Dependencies.ID(ResourceTypes.WebApplication),
 	),
-	ResourceTypes.OwnershipConfig: NewResourceDescriptor(ownership_config.Service),
+	ResourceTypes.OwnershipConfig:          NewResourceDescriptor(ownership_config.Service),
+	ResourceTypes.BuiltinProcessMonitoring: NewResourceDescriptor(builtinprocessmonitoringrule.Service),
+	ResourceTypes.LimitOutboundConnections: NewResourceDescriptor(allowedoutboundconnections.Service),
+	ResourceTypes.SpanEvents:               NewResourceDescriptor(eventattribute.Service),
+	ResourceTypes.VMware:                   NewResourceDescriptor(vmware.Service),
+	ResourceTypes.CustomDevice:             NewResourceDescriptor(customdevice.Service),
+	ResourceTypes.K8sMonitoring: NewResourceDescriptor(
+		kubernetesmonitoring.Service,
+		Coalesce(Dependencies.K8sCluster),
+	),
+	ResourceTypes.AutomationWorkflow: NewResourceDescriptor(workflows.Service),
 }
 
 var BlackListedResources = []ResourceType{
-	ResourceTypes.MaintenanceWindow, // legacy
-	ResourceTypes.ManagementZone,    // legacy
-	ResourceTypes.Notification,      // legacy
-	ResourceTypes.AlertingProfile,   // legacy
-	ResourceTypes.Dashboard,         // taken care of dynatrace_json_dashboard
-	ResourceTypes.IAMUser,           // not sure whether to migrate
-	ResourceTypes.IAMGroup,          // not sure whether to migrate
-	ResourceTypes.IAMPermission,     // not sure whether to migrate
-	ResourceTypes.IAMPolicy,         // not sure whether to migrate
-	ResourceTypes.IAMPolicyBindings, // not sure whether to migrate
+	// Officially deprecated resources (EOL)
+	ResourceTypes.AlertingProfile,   // Replaced by dynatrace_alerting
+	ResourceTypes.CustomAnomalies,   // Replaced by dynatrace_metric_events
+	ResourceTypes.MaintenanceWindow, // Replaced by dynatrace_maintenance
+	ResourceTypes.Notification,      // Replaced by dynatrace_<type>_notification
 
-	// excluding by default
-	ResourceTypes.JSONDashboard, // may replace dynatrace_dashboard in the future
-	ResourceTypes.DashboardSharing,
+	// Deprecated resources due to better alternatives
+	ResourceTypes.ApplicationAnomalies,    // Replaced by dynatrace_web_app_anomalies
+	ResourceTypes.ApplicationDataPrivacy,  // Replaced by dynatrace_data_privacy and dynatrace_session_replay_web_privacy
+	ResourceTypes.AutoTag,                 // Replaced by dynatrace_autotag_v2
+	ResourceTypes.CloudFoundryCredentials, // Replaced by dynatrace_cloud_foundry
+	ResourceTypes.Dashboard,               // Replaced by dynatrace_json_dashboard
+	ResourceTypes.DatabaseAnomalies,       // Replaced by dynatrace_database_anomalies_v2
+	ResourceTypes.DiskEventAnomalies,      // Replaced by dynatrace_disk_anomaly_rules
+	ResourceTypes.HostAnomalies,           // Replaced by dynatrace_host_anomalies_v2
+	ResourceTypes.KubernetesCredentials,   // Replaced by dynatrace_kubernetes
+	ResourceTypes.ManagementZone,          // Replaced by dynatrace_management_zone_v2
+	ResourceTypes.ProcessGroupAnomalies,   // Replaced by dynatrace_pg_alerting
+	ResourceTypes.ServiceAnomalies,        // Replaced by dynatrace_service_anomalies_v2
+	ResourceTypes.SLO,                     // Replaced by dynatrace_slo_v2
 
-	ResourceTypes.ProcessGroupAnomalies, // there could be 100k process groups
+	// Resources waiting for full coverage to deprecate v1/v2 counterpart
+	ResourceTypes.ApplicationDetectionV2, // Cannot handle ordering, use dynatrace_application_detection_rule
+	ResourceTypes.MobileAppRequestErrors, // JS errors missing, use dynatrace_application_error_rules
+	ResourceTypes.WebAppCustomErrors,     // JS errors missing, use dynatrace_application_error_rules
+	ResourceTypes.WebAppRequestErrors,    // JS errors missing, use dynatrace_application_error_rules
 
-	ResourceTypes.WebAppEnablement,             // overlap with ResourceTypes.MobileApplication
-	ResourceTypes.MobileAppEnablement,          // overlap with ResourceTypes.MobileApplication
-	ResourceTypes.CustomAppEnablement,          // overlap with ResourceTypes.MobileApplication
-	ResourceTypes.SessionReplayWebPrivacy,      // overlap with ResourceTypes.ApplicationDataPrivacy
-	ResourceTypes.SessionReplayResourceCapture, // overlap with ResourceTypes.WebApplication
-	ResourceTypes.WebAppKeyPerformanceCustom,   // overlap with ResourceTypes.WebApplication
-	ResourceTypes.BrowserMonitorOutageHandling, // overlap with ResourceTypes.BrowserMonitor
-	ResourceTypes.HttpMonitorOutageHandling,    // overlap with ResourceTypes.HTTPMonitor
-	ResourceTypes.DataPrivacy,                  // overlap with ResourceTypes.ApplicationDataPrivacy
-	ResourceTypes.WebAppCustomErrors,           // overlap with ResourceTypes.ApplicationErrorRules
-	ResourceTypes.WebAppRequestErrors,          // overlap with ResourceTypes.ApplicationErrorRules
-	ResourceTypes.UserSettings,                 // requires personal token
-	ResourceTypes.LogGrail,                     // phased rollout
-	ResourceTypes.ApplicationDetectionV2,       // overlap with ResourceTypes.ApplicationDetection
+	// Excluded since configuration is under account management
+	ResourceTypes.IAMUser,
+	ResourceTypes.IAMGroup,
+	ResourceTypes.IAMPermission,
+	ResourceTypes.IAMPolicy,
+	ResourceTypes.IAMPolicyBindings,
 
-	ResourceTypes.KubernetesCredentials,   // overlap with Settings 2.0 ResourceTypes.Kubernetes
-	ResourceTypes.CloudFoundryCredentials, // overlap with Settings 2.0 ResourceTypes.CloudFoundry
-	ResourceTypes.DiskEventAnomalies,      // overlap with Settings 2.0 ResourceTypes.DiskAnomalyDetectionRules
-	ResourceTypes.SLO,                     // overlap with Settings 2.0 ResourceTypes.SLOV2
-	ResourceTypes.AutoTag,                 // overlap with Settings 2.0 ResourceTypes.AutoTagV2
+	ResourceTypes.JSONDashboard,    // Excluded due to the potential of a large amount of dashboards
+	ResourceTypes.DashboardSharing, // Excluded since it is retrieved as a child resource of dynatrace_json_dashboard
+
+	ResourceTypes.UserSettings, // Excluded since it requires a personal token
+
+	// Not included in export - to be discussed
+	ResourceTypes.AzureService,
+	ResourceTypes.AWSService,
+	ResourceTypes.AutomationWorkflow,
+
+	// Not included in export - may cause issues for migration use cases
+	ResourceTypes.MetricMetadata,
+	ResourceTypes.MetricQuery,
 }
 
 func Service(credentials *settings.Credentials, resourceType ResourceType) settings.CRUDService[settings.Settings] {

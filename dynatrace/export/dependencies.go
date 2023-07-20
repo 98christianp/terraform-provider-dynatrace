@@ -39,51 +39,53 @@ func Coalesce(d Dependency) Dependency {
 }
 
 var Dependencies = struct {
-	ManagementZone            Dependency
-	LegacyID                  func(resourceType ResourceType) Dependency
-	ID                        func(resourceType ResourceType) Dependency
-	ResourceID                func(resourceType ResourceType) Dependency
-	ServiceMethod             Dependency
-	Service                   Dependency
-	HostGroup                 Dependency
-	Host                      Dependency
-	Disk                      Dependency
-	ProcessGroup              Dependency
-	ProcessGroupInstance      Dependency
-	RequestAttribute          Dependency
-	CustomApplication         Dependency
-	MobileApplication         Dependency
-	DeviceApplicationMethod   Dependency
-	Application               Dependency
-	ApplicationMethod         Dependency
-	SyntheticTest             Dependency
-	HttpCheck                 Dependency
+	ManagementZone       Dependency
+	LegacyID             func(resourceType ResourceType) Dependency
+	ID                   func(resourceType ResourceType) Dependency
+	ResourceID           func(resourceType ResourceType) Dependency
+	ServiceMethod        Dependency
+	Service              Dependency
+	HostGroup            Dependency
+	Host                 Dependency
+	Disk                 Dependency
+	ProcessGroup         Dependency
+	ProcessGroupInstance Dependency
+	RequestAttribute     Dependency
+	// CustomApplication    Dependency
+	// MobileApplication       Dependency
+	DeviceApplicationMethod Dependency
+	// Application               Dependency
+	ApplicationMethod Dependency
+	// SyntheticTest             Dependency
+	// HttpCheck                 Dependency
 	K8sCluster                Dependency
 	CloudApplicationNamespace Dependency
 	EnvironmentActiveGate     Dependency
+	Tenant                    Dependency
 }{
-	ManagementZone:            &mgmzdep{ResourceTypes.ManagementZoneV2},
-	LegacyID:                  func(resourceType ResourceType) Dependency { return &legacyID{resourceType} },
-	ID:                        func(resourceType ResourceType) Dependency { return &iddep{resourceType} },
-	ResourceID:                func(resourceType ResourceType) Dependency { return &resourceIDDep{resourceType} },
-	ServiceMethod:             &entityds{"SERVICE_METHOD", "SERVICE_METHOD-[A-Z0-9]{16}", false},
-	Service:                   &entityds{"SERVICE", "SERVICE-[A-Z0-9]{16}", false},
-	HostGroup:                 &entityds{"HOST_GROUP", "HOST_GROUP-[A-Z0-9]{16}", false},
-	Host:                      &entityds{"HOST", "HOST-[A-Z0-9]{16}", false},
-	Disk:                      &entityds{"DISK", "DISK-[A-Z0-9]{16}", false},
-	ProcessGroup:              &entityds{"PROCESS_GROUP", "PROCESS_GROUP-[A-Z0-9]{16}", false},
-	ProcessGroupInstance:      &entityds{"PROCESS_GROUP_INSTANCE", "PROCESS_GROUP_INSTANCE-[A-Z0-9]{16}", false},
-	RequestAttribute:          &reqAttName{ResourceTypes.RequestAttribute},
-	CustomApplication:         &entityds{"CUSTOM_APPLICATION", "CUSTOM_APPLICATION-[A-Z0-9]{16}", false},
-	MobileApplication:         &entityds{"MOBILE_APPLICATION", "MOBILE_APPLICATION-[A-Z0-9]{16}", false},
-	DeviceApplicationMethod:   &entityds{"DEVICE_APPLICATION_METHOD", "DEVICE_APPLICATION_METHOD-[A-Z0-9]{16}", false},
-	Application:               &entityds{"APPLICATION", "APPLICATION-[A-Z0-9]{16}", false},
-	ApplicationMethod:         &entityds{"APPLICATION_METHOD", "APPLICATION_METHOD-[A-Z0-9]{16}", false},
-	SyntheticTest:             &entityds{"SYNTHETIC_TEST", "SYNTHETIC_TEST-[A-Z0-9]{16}", false},
-	HttpCheck:                 &entityds{"HTTP_CHECK", "HTTP_CHECK-[A-Z0-9]{16}", false},
+	ManagementZone:       &mgmzdep{ResourceTypes.ManagementZoneV2},
+	LegacyID:             func(resourceType ResourceType) Dependency { return &legacyID{resourceType} },
+	ID:                   func(resourceType ResourceType) Dependency { return &iddep{resourceType} },
+	ResourceID:           func(resourceType ResourceType) Dependency { return &resourceIDDep{resourceType} },
+	ServiceMethod:        &entityds{"SERVICE_METHOD", "SERVICE_METHOD-[A-Z0-9]{16}", false},
+	Service:              &entityds{"SERVICE", "SERVICE-[A-Z0-9]{16}", false},
+	HostGroup:            &entityds{"HOST_GROUP", "HOST_GROUP-[A-Z0-9]{16}", false},
+	Host:                 &entityds{"HOST", "HOST-[A-Z0-9]{16}", false},
+	Disk:                 &entityds{"DISK", "DISK-[A-Z0-9]{16}", false},
+	ProcessGroup:         &entityds{"PROCESS_GROUP", "PROCESS_GROUP-[A-Z0-9]{16}", false},
+	ProcessGroupInstance: &entityds{"PROCESS_GROUP_INSTANCE", "PROCESS_GROUP_INSTANCE-[A-Z0-9]{16}", false},
+	RequestAttribute:     &reqAttName{ResourceTypes.RequestAttribute},
+	// CustomApplication:    &entityds{"CUSTOM_APPLICATION", "CUSTOM_APPLICATION-[A-Z0-9]{16}", false},
+	// MobileApplication:       &entityds{"MOBILE_APPLICATION", "MOBILE_APPLICATION-[A-Z0-9]{16}", false},
+	DeviceApplicationMethod: &entityds{"DEVICE_APPLICATION_METHOD", "DEVICE_APPLICATION_METHOD-[A-Z0-9]{16}", false},
+	// Application:               &entityds{"APPLICATION", "APPLICATION-[A-Z0-9]{16}", false},
+	ApplicationMethod: &entityds{"APPLICATION_METHOD", "APPLICATION_METHOD-[A-Z0-9]{16}", false},
+	// SyntheticTest:             &entityds{"SYNTHETIC_TEST", "SYNTHETIC_TEST-[A-Z0-9]{16}", false},
+	// HttpCheck:                 &entityds{"HTTP_CHECK", "HTTP_CHECK-[A-Z0-9]{16}", false},
 	K8sCluster:                &entityds{"KUBERNETES_CLUSTER", "KUBERNETES_CLUSTER-[A-Z0-9]{16}", false},
 	CloudApplicationNamespace: &entityds{"CLOUD_APPLICATION_NAMESPACE", "CLOUD_APPLICATION_NAMESPACE-[A-Z0-9]{16}", false},
 	EnvironmentActiveGate:     &entityds{"ENVIRONMENT_ACTIVE_GATE", "ENVIRONMENT_ACTIVE_GATE-[A-Z0-9]{16}", false},
+	Tenant:                    &tenantds{},
 }
 
 type mgmzdep struct {
@@ -216,8 +218,11 @@ func (me *iddep) DataSourceType() DataSourceType {
 }
 
 func (me *iddep) Replace(environment *Environment, s string, replacingIn ResourceType) (string, []any) {
+	childDescriptor := environment.Module(replacingIn).Descriptor
+	isParent := !environment.ChildResourceOverride && childDescriptor.Parent != nil && string(*childDescriptor.Parent) == string(me.resourceType)
+
 	replacePattern := "${var.%s.%s.id}"
-	if environment.Flags.Flat {
+	if environment.Flags.Flat || isParent {
 		replacePattern = "${%s.%s.id}"
 	}
 	resources := []any{}
@@ -238,7 +243,7 @@ func (me *iddep) Replace(environment *Environment, s string, replacingIn Resourc
 				}
 			} else {
 				replacePattern = "${var.%s.%s.id}"
-				if environment.Flags.Flat {
+				if environment.Flags.Flat || isParent {
 					replacePattern = "${%s.%s.id}"
 				}
 			}
@@ -305,6 +310,35 @@ func (me *resourceIDDep) Replace(environment *Environment, s string, replacingIn
 	return s, resources
 }
 
+type tenantds struct {
+}
+
+func (me *tenantds) ResourceType() ResourceType {
+	return ""
+}
+
+func (me *tenantds) DataSourceType() DataSourceType {
+	return ""
+}
+
+func (me *tenantds) Replace(environment *Environment, s string, replacingIn ResourceType) (string, []any) {
+	tenantID := environment.TenantID()
+	if len(tenantID) == 0 {
+		return s, []any{}
+	}
+	// when running on HTTP Cache no data sources should get replaced
+	// The IDs of these entities are guaranteed to match existing ones
+	if len(os.Getenv("DYNATRACE_MIGRATION_CACHE_FOLDER")) > 0 {
+		return s, []any{}
+	}
+	if !strings.Contains(s, tenantID) {
+		return s, []any{}
+	}
+	environment.Module(replacingIn).DataSource("tenant")
+	s = strings.ReplaceAll(s, tenantID, "${data.dynatrace_tenant.tenant.id}")
+	return s, []any{true}
+}
+
 type entityds struct {
 	Type     string
 	Pattern  string
@@ -323,6 +357,9 @@ func (me *entityds) Replace(environment *Environment, s string, replacingIn Reso
 	// when running on HTTP Cache no data sources should get replaced
 	// The IDs of these entities are guaranteed to match existing ones
 	if len(os.Getenv("DYNATRACE_MIGRATION_CACHE_FOLDER")) > 0 {
+		return s, []any{}
+	}
+	if environment.Flags.FlagMigrationOutput {
 		return s, []any{}
 	}
 	found := false

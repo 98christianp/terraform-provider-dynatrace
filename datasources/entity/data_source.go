@@ -20,7 +20,6 @@ package entity
 import (
 	srv "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/entities"
 	entities "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/entities/settings"
-	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/cache"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/config"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/logging"
 
@@ -31,8 +30,27 @@ func DataSource() *schema.Resource {
 	return &schema.Resource{
 		Read: logging.EnableDS(DataSourceRead),
 		Schema: map[string]*schema.Schema{
-			"type": {Type: schema.TypeString, Required: true},
-			"name": {Type: schema.TypeString, Required: true},
+			"type": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				RequiredWith: []string{"type", "name"},
+			},
+			"name": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				RequiredWith: []string{"type", "name"},
+			},
+			"entity_selector": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ConflictsWith: []string{"type", "name"},
+			},
+			"properties": {
+				Type:        schema.TypeMap,
+				Description: "Properties defining the entity.",
+				Computed:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
 		},
 	}
 }
@@ -46,21 +64,47 @@ func DataSourceRead(d *schema.ResourceData, m any) error {
 	if v, ok := d.GetOk("type"); ok {
 		entityType = v.(string)
 	}
+	var entitySelector string
+	if v, ok := d.GetOk("entity_selector"); ok {
+		entitySelector = v.(string)
+	}
+	creds, err := config.Credentials(m, config.CredValDefault)
+	if err != nil {
+		return err
+	}
 
 	var settings entities.Settings
-	service := cache.Read(srv.Service(entityType, config.Credentials(m)), true)
+	// service := cache.Read(srv.Service(entityType, entitySelector, creds), true)
+	service := srv.Service(entityType, entitySelector, creds)
 	if err := service.Get(service.SchemaID(), &settings); err != nil {
 		return err
 	}
-	d.SetId(service.SchemaID())
 	if len(settings.Entities) != 0 {
-		for _, entity := range settings.Entities {
-			if name == *entity.DisplayName {
-				d.SetId(*entity.EntityId)
-				return nil
+		if len(name) > 0 {
+			// When looking for a specific name
+			// The first entity that matches that name will be returned
+			for _, entity := range settings.Entities {
+				if name == *entity.DisplayName {
+					d.SetId(*entity.EntityId)
+					if len(entity.Properties) > 0 {
+						d.Set("properties", entity.Properties)
+					}
+					return nil
+				}
 			}
+			// No entity with that name -> ID empty string signals not found
+			d.SetId("")
+			return nil
 		}
+		// When looking via entity_selector the first result
+		// will be returned
+		d.SetId(*settings.Entities[0].EntityId)
+		if len(settings.Entities[0].Properties) > 0 {
+			d.Set("properties", settings.Entities[0].Properties)
+		}
+		return nil
 	}
+	// Without any matches we're setting the ID to an empty string
 	d.SetId("")
 	return nil
 }

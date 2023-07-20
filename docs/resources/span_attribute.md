@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_span_attribute Resource - terraform-provider-dynatrace"
+subcategory: "OpenTelemetry & OpenTracing"
 description: |-
   The resource `dynatrace_span_attribute` covers configuration for span attributes
 ---
 
 # dynatrace_span_attribute (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -24,8 +27,8 @@ The full documentation of the export feature is available [here](https://registr
 
 ### Required
 
-- `key` (String) the key of the attribute to capture
-- `masking` (String) granular control over the visibility of attribute values
+- `key` (String) Key of the span attribute to store
+- `masking` (String) Possible Values: `MASK_ENTIRE_VALUE`, `MASK_ONLY_CONFIDENTIAL_DATA`, `NOT_MASKED`
 
 ### Optional
 

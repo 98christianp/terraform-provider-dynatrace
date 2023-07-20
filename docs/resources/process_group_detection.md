@@ -1,12 +1,14 @@
 ---
 layout: ""
 page_title: "dynatrace_process_group_detection Resource - terraform-provider-dynatrace"
+subcategory: "Process Group Monitoring"
 description: |-
   The resource `dynatrace_process_group_detection` covers configuration for Advanced Process Group Detection Rules
 ---
 
 # dynatrace_process_group_detection (Resource)
 
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -16,14 +18,14 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_process_group_detection` downloads all existing muted requests configuration
+- `terraform-provider-dynatrace -export dynatrace_process_group_detection` downloads all existing advanced process group detection configuration
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 
 ## Resource Example Usage
 
 ```terraform
-resource "dynatrace_process_group_detection" "pg_detection_rule" {
+resource "dynatrace_process_group_detection" "_47d495a8-5577-436d-a3b3-777924c2d103" {
   enabled = true
   group_extraction {
     property        = "COMMAND_LINE_ARGS"

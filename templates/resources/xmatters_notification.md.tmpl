@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_xmatters_notification Resource - terraform-provider-dynatrace"
+subcategory: "Notifications"
 description: |-
   The resource `dynatrace_xmatters_notification` covers configuration problem notifications sent via xMatters
 ---
 
 # dynatrace_webhook_notification (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -15,13 +18,13 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_xmatters_notification` downloads the existing Problem Notifications for xMatters
+- `terraform-provider-dynatrace -export dynatrace_xmatters_notification` downloads the existing problem notifications for xMatters
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 
 ## Resource Example Usage
 
-{{ tffile "test_data/notifications/xmatters/example_a.tf" }}
+{{ tffile "dynatrace/api/builtin/problem/notifications/xmatters/testdata/terraform/example_a.tf" }}
 
 {{ .SchemaMarkdown | trimspace }}
  

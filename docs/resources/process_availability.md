@@ -1,12 +1,14 @@
 ---
 layout: ""
 page_title: "dynatrace_process_availability Resource - terraform-provider-dynatrace"
+subcategory: "Process Monitoring"
 description: |-
   The resource `dynatrace_process_availability` covers configuration to monitor key processes on a host
 ---
 
 # dynatrace_process_availability (Resource)
 
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -16,16 +18,16 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_process_availability` downloads all existing muted requests configuration
+- `terraform-provider-dynatrace -export dynatrace_process_availability` downloads all existing process availability configuration
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 
 ## Resource Example Usage
 
 ```terraform
-resource "dynatrace_process_availability" "example" {
+resource "dynatrace_process_availability" "#name#" {
   enabled = true
-  name    = "example"
+  name    = "#name#"
   rules {
     rule {
       property  = "executable"

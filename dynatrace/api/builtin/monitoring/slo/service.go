@@ -23,9 +23,9 @@ import (
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/settings/services/settings20"
 )
 
-const SchemaVersion = "6.0.11"
+const SchemaVersion = "6.0.12"
 const SchemaID = "builtin:monitoring.slo"
 
 func Service(credentials *settings.Credentials) settings.CRUDService[*slo.Settings] {
-	return settings20.Service[*slo.Settings](credentials, SchemaID, SchemaVersion)
+	return settings20.Service(credentials, SchemaID, SchemaVersion, &settings20.ServiceOptions[*slo.Settings]{LegacyID: settings.LegacyObjIDDecode})
 }

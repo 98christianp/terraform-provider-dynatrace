@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/address"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/export"
 )
 
@@ -60,10 +61,10 @@ func runExport() (err error) {
 		return err
 	}
 
-	exePath, _ := exec.LookPath("terraform.exe")
+	exePath, _ := exec.LookPath("terraform")
 	cmd := exec.Command(exePath, "init", "-no-color")
 	cmd.Dir = environment.OutputFolder
-	outs, err := cmd.StdoutPipe()
+	outs, err := cmd.StderrPipe()
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func runExport() (err error) {
 		fmt.Println("Executing 'terraform init'")
 		defer func() {
 			cmd.Wait()
-			if environment.Flags.ImportState || environment.Flags.ImportStateV2 {
+			if environment.Flags.ImportStateV2 {
 				fmt.Println("Importing Resources into Terraform State ...")
 				if err = environment.ExecuteImport(); err != nil {
 					return
@@ -85,6 +86,9 @@ func runExport() (err error) {
 
 		go readStuff(bufio.NewScanner(outs))
 	}
+
+	address.SaveOriginalMap(environment.OutputFolder)
+	address.SaveCompletedMap(environment.OutputFolder)
 
 	return nil
 }

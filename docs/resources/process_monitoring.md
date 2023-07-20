@@ -1,12 +1,14 @@
 ---
 layout: ""
 page_title: "dynatrace_process_monitoring Resource - terraform-provider-dynatrace"
+subcategory: "Process Monitoring"
 description: |-
   The resource `dynatrace_process_monitoring` covers configuration to monitor key processes on a host
 ---
 
 # dynatrace_process_monitoring (Resource)
 
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -16,7 +18,7 @@ description: |-
 
 ## Export Example Usage
 
-- `terraform-provider-dynatrace -export dynatrace_process_monitoring` downloads all existing muted requests configuration
+- `terraform-provider-dynatrace -export dynatrace_process_monitoring` downloads all existing key processes configuration
 
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 

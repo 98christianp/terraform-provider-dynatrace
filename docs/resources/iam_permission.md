@@ -1,11 +1,16 @@
 ---
 layout: ""
 page_title: "dynatrace_iam_permission Resource - terraform-provider-dynatrace"
+subcategory: "IAM"
 description: |-
   The resource `dynatrace_iam_permission` covers configuration of permissions for user groups via Account Management API for SaaS Accounts
 ---
 
 # dynatrace_iam_permission (Resource)
+
+-> This resource is excluded by default in the export utility since it is part of the account management API.
+
+-> This resource requires the API token scopes **Allow read access for identity resources (users and groups)** (`account-idm-read`) and **Allow write access for identity resources (users and groups)** (`account-idm-write`)
 
 ## Dynatrace Documentation
 

@@ -1,13 +1,16 @@
 ---
 layout: ""
 page_title: "dynatrace_web_app_request_errors Resource - terraform-provider-dynatrace"
+subcategory: "Web Applications"
 description: |-
   The resource `dynatrace_web_app_request_errors` covers configuration for web application request errors
 ---
 
 # dynatrace_web_app_request_errors (Resource)
 
--> **Settings 2.0** Certain field(s) of this resource has overlap with `dynatrace_application_error_rules`, therefore it is excluded from the default export. To retrieve this resource via export, directly specify it as a command line argument. 
+!> This resource may not have full coverage of the required fields, please use [dynatrace_application_error_rules](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/resources/application_error_rules) instead.
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 

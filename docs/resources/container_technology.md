@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_container_technology Resource - terraform-provider-dynatrace"
+subcategory: "Containers"
 description: |-
   The resource `dynatrace_container_technology` covers configuration for container monitoring
 ---
 
 # dynatrace_container_technology (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -29,6 +32,7 @@ resource "dynatrace_container_technology" "environment" {
   docker               = true
   docker_windows       = true
   garden               = true
+  podman               = true
   scope                = "environment"
   winc                 = true
 }
@@ -79,6 +83,13 @@ Status: Released
 Operating system: Linux
 
 Min agent version: 1.133
+- `podman` (Boolean) Platform: Podman
+
+Status: Released
+
+Operating system: Linux
+
+Min agent version: 1.267
 - `winc` (Boolean) Platform: Cloud Foundry
 
 Status: Early adopter

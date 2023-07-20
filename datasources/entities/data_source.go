@@ -20,6 +20,7 @@ package entities
 import (
 	srv "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/entities"
 	entities "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/entities/settings"
+	entity "github.com/dynatrace-oss/terraform-provider-dynatrace/dynatrace/api/v2/entity/settings"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/config"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/provider/logging"
 	"github.com/dynatrace-oss/terraform-provider-dynatrace/terraform/hcl"
@@ -32,13 +33,20 @@ func DataSource() *schema.Resource {
 		Read: logging.EnableDS(DataSourceRead),
 		Schema: map[string]*schema.Schema{
 			"type": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   "The type of the entities to find, e.g. `HOST`. You cannot use `type` and `entity_selector` at the same time",
+				ConflictsWith: []string{"entity_selector"},
+			},
+			"entity_selector": {
+				Type:          schema.TypeString,
+				Description:   "An entity selector that filters the entities of interest. You cannot use `type` and `entity_selector` at the same time",
+				Optional:      true,
+				ConflictsWith: []string{"type"},
 			},
 			"entities": {
 				Type:     schema.TypeList,
-				MaxItems: 1,
-				Elem:     &schema.Resource{Schema: new(entities.Entities).Schema()},
+				Elem:     &schema.Resource{Schema: new(entity.Entity).Schema()},
 				Optional: true,
 				Computed: true,
 			},
@@ -52,19 +60,28 @@ func DataSourceRead(d *schema.ResourceData, m any) error {
 		entityType = v.(string)
 	}
 
+	var entitySelector string
+	if v, ok := d.GetOk("entity_selector"); ok {
+		entitySelector = v.(string)
+	}
+	creds, err := config.Credentials(m, config.CredValDefault)
+	if err != nil {
+		return err
+	}
+
 	var settings entities.Settings
-	service := srv.Service(entityType, config.Credentials(m))
+	service := srv.Service(entityType, entitySelector, creds)
 	if err := service.Get(service.SchemaID(), &settings); err != nil {
 		return err
 	}
 	d.SetId(service.SchemaID())
 	if len(settings.Entities) != 0 {
 		marshalled := hcl.Properties{}
-		err := settings.MarshalHCL(marshalled)
+		err := marshalled.Encode("settings", &settings)
 		if err != nil {
 			return err
 		}
-		d.Set("entities", marshalled["entities"])
+		d.Set("entities", marshalled["settings"].([]any)[0].(hcl.Properties)["entities"])
 	}
 	return nil
 }

@@ -1,13 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_web_application Resource - terraform-provider-dynatrace"
+subcategory: "Web Applications"
 description: |-
   The resource `dynatrace_web_application` covers configuration for web applications
 ---
 
 # dynatrace_web_application (Resource)
 
--> Certain field(s) of this resource has overlap with `dynatrace_web_app_enablement` and `dynatrace_session_replay_resource_capture`, please review the schema for additional information.
+-> This resource requires the API token scopes **Read configuration** (`ReadConfig`) and **Write configuration** (`WriteConfig`)
 
 ## Dynatrace Documentation
 
@@ -810,7 +811,7 @@ Optional:
 - `ignore_case` (Boolean) Case insensitive naming
 - `load_action_naming_rules` (Block List, Max: 1) User action naming rules for loading actions (see [below for nested schema](#nestedblock--user_action_naming_settings--load_action_naming_rules))
 - `placeholders` (Block List, Max: 1) User action placeholders (see [below for nested schema](#nestedblock--user_action_naming_settings--placeholders))
-- `query_parameter_cleanups` (Set of String) User action naming rules for custom actions
+- `query_parameter_cleanups` (Set of String) User action naming rules for custom actions. If not specified Dynatrace assumes `__sid`, `cfid`, `cftoken`, `phpsessid` and `sid`.
 - `split_user_actions_by_domain` (Boolean) Deactivate this setting if different domains should not result in separate user actions
 - `use_first_detected_load_action` (Boolean) First load action found under an XHR action should be used when true. Else the deepest one under the xhr action is used
 - `xhr_action_naming_rules` (Block List, Max: 1) User action naming rules for XHR actions (see [below for nested schema](#nestedblock--user_action_naming_settings--xhr_action_naming_rules))
@@ -1014,14 +1015,15 @@ Required:
 <a id="nestedblock--user_tags--tag"></a>
 ### Nested Schema for `user_tags.tag`
 
-Required:
-
-- `id` (Number) A unique ID among all userTags and properties of this application. Minimum value is 1.
-
 Optional:
 
 - `cleanup_rule` (String) Cleanup rule expression of the userTag
+- `id` (Number) A unique ID among all userTags and properties of this application. Minimum value is 1. Do not set that attribute anymore - terraform will handle it. Kept for backwards compatibility
 - `ignore_case` (Boolean) If `true`, the value of this tag will always be stored in lower case. Defaults to `false`.
 - `metadata_id` (Number) If it's of type metaData, metaData id of the userTag
 - `server_side_request_attribute` (String) The ID of the RrequestAttribute for the userTag
+
+Read-Only:
+
+- `unique_id` (Number) A unique ID among all userTags and properties of this application. Minimum value is 1.
  

@@ -1,11 +1,14 @@
 ---
 layout: ""
 page_title: dynatrace_autotag_v2 Resource - terraform-provider-dynatrace"
+subcategory: "Tags"
 description: |-
   The resource `dynatrace_autotag_v2` covers configuration for automatically applied tags
 ---
 
 # dynatrace_autotag_v2 (Resource)
+
+-> This resource requires the API token scopes **Read settings** (`settings.read`) and **Write settings** (`settings.write`)
 
 ## Dynatrace Documentation
 
@@ -20,6 +23,22 @@ description: |-
 The full documentation of the export feature is available [here](https://registry.terraform.io/providers/dynatrace-oss/dynatrace/latest/docs/guides/export-v2).
 
 ## Resource Example Usage
+
+```terraform
+# Sample for how to configure Auto Tag Rules using an Entity Selector
+resource "dynatrace_autotag_v2" "GKESample" {
+  name = "GKE-Hosts"
+  rules {
+    rule {
+      type                = "SELECTOR"
+      enabled             = true
+      entity_selector     = "type(host),entityName.startsWith(\"gke\")"
+      value_format        = "true"
+      value_normalization = "Leave text as-is"
+    }
+  }
+}
+```
 
 ```terraform
 resource "dynatrace_autotag_v2" "#name#" {
