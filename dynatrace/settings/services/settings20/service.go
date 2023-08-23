@@ -20,7 +20,6 @@ package settings20
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -34,7 +33,8 @@ import (
 	"net/url"
 )
 
-var NO_REPAIR_INPUT = os.Getenv("DT_NO_REPAIR_INPUT") == "true"
+// var NO_REPAIR_INPUT = os.Getenv("DT_NO_REPAIR_INPUT") == "true"
+var NO_REPAIR_INPUT = true
 
 func Service[T settings.Settings](credentials *settings.Credentials, schemaID string, schemaVersion string, options ...*ServiceOptions[T]) settings.CRUDService[T] {
 	var opts *ServiceOptions[T]
@@ -57,7 +57,7 @@ type SettingsObjectUpdate struct {
 type SettingsObjectCreate struct {
 	SchemaVersion string `json:"schemaVersion,omitempty"`
 	SchemaID      string `json:"schemaId"`
-	Scope         string `json:"scope"`
+	Scope         string `json:"scope,omitempty"`
 	Value         any    `json:"value"`
 }
 

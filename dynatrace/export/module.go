@@ -71,7 +71,9 @@ func (me *Module) IsReferencedAsDataSource() bool {
 		me.Type == ResourceTypes.UpdateWindows ||
 		me.Type == ResourceTypes.AWSCredentials ||
 		me.Type == ResourceTypes.AzureCredentials ||
-		me.Type == ResourceTypes.IAMGroup
+		me.Type == ResourceTypes.IAMGroup ||
+		me.Type == ResourceTypes.AppSecVulnerabilityAlerting ||
+		me.Type == ResourceTypes.AppSecAttackAlerting
 }
 
 func (me *Module) DataSource(id string) *DataSource {
@@ -166,7 +168,9 @@ func (me *Module) MkdirAll(flawed bool) error {
 	mkdirMutex.Lock()
 	defer mkdirMutex.Unlock()
 	if flawed {
-		return os.MkdirAll(me.GetFlawedFolder(), os.ModePerm)
+		if err := os.MkdirAll(me.GetFlawedFolder(), os.ModePerm); err != nil {
+			return err
+		}
 	}
 	return os.MkdirAll(me.GetFolder(), os.ModePerm)
 }

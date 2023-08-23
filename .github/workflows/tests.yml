@@ -21,6 +21,187 @@ jobs:
         env:
           GOPROXY: "https://proxy.golang.org"
         run: go build .
+      - name: TestAccBusinessCalendars
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          DYNATRACE_AUTOMATION_CLIENT_ID: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_ID }}
+          DYNATRACE_AUTOMATION_CLIENT_SECRET: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_SECRET }}
+          DYNATRACE_AUTOMATION_TOKEN_URL: ${{ secrets.DYNATRACE_AUTOMATION_TOKEN_URL }}
+          DYNATRACE_AUTOMATION_ENVIRONMENT_URL: ${{ secrets.DYNATRACE_AUTOMATION_ENVIRONMENT_URL }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/automation/business_calendars
+      - name: TestAccSchedulingRules
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          DYNATRACE_AUTOMATION_CLIENT_ID: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_ID }}
+          DYNATRACE_AUTOMATION_CLIENT_SECRET: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_SECRET }}
+          DYNATRACE_AUTOMATION_TOKEN_URL: ${{ secrets.DYNATRACE_AUTOMATION_TOKEN_URL }}
+          DYNATRACE_AUTOMATION_ENVIRONMENT_URL: ${{ secrets.DYNATRACE_AUTOMATION_ENVIRONMENT_URL }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/automation/scheduling_rules
+      - name: TestAccWorkflows
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          DYNATRACE_AUTOMATION_CLIENT_ID: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_ID }}
+          DYNATRACE_AUTOMATION_CLIENT_SECRET: ${{ secrets.DYNATRACE_AUTOMATION_CLIENT_SECRET }}
+          DYNATRACE_AUTOMATION_TOKEN_URL: ${{ secrets.DYNATRACE_AUTOMATION_TOKEN_URL }}
+          DYNATRACE_AUTOMATION_ENVIRONMENT_URL: ${{ secrets.DYNATRACE_AUTOMATION_ENVIRONMENT_URL }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/automation/workflows
+      - name: TestBizEventsSecurityContext
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/bizevents/security/contextrules
+      - name: TestAppSecVulnerabilitySettings
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/runtimevulnerabilitydetection
+      - name: TestAppSecVulnerabilityThirdParty
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/rulesettings
+      - name: TestAppSecVulnerabilityCode
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/codelevelvulnerability
+      - name: TestAppSecNotification
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/notificationintegration
+      - name: TestAppSecVulnerabilityAlerting
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/notificationalertingprofile
+      - name: TestAppSecAttackAlerting
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/notificationattackalertingprofile
+      - name: TestAppSecAttackProtectionSettings
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/attackprotectionsettings
+      - name: TestAppSecAttackProtectionRules
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/attackprotectionadvancedconfig 
+      - name: TestAppSecAttackProtectionAllowlist
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/appsec/attackprotectionallowlistconfig  
       - name: TestDatabaseAnomalyDetection
         if: success() || failure()
         env:
@@ -190,6 +371,32 @@ jobs:
           IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
           IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
         run: go test -v ./dynatrace/api/builtin/host/monitoring
+      - name: TestHostMonitoringMode
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/host/monitoring/mode
+      - name: TestIPAddressMasking
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/builtin/preferences/ipaddressmasking
       - name: TestHostProcessGroupMonitoring
         if: success() || failure()
         env:
@@ -1074,6 +1281,19 @@ jobs:
           IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
           IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
         run: go test -v ./dynatrace/api/builtin/logmonitoring/logdpprules
+      # - name: TestLogSecurityContext
+      #   if: success() || failure()
+      #   env:
+      #     GOPROXY: "https://proxy.golang.org"
+      #     TF_ACC: true
+      #     DYNATRACE_DEBUG: true
+      #     DT_NO_REPAIR_INPUT: true
+      #     DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+      #     DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+      #     IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+      #     IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+      #     IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+      #   run: go test -v ./dynatrace/api/builtin/logmonitoring/logsecuritycontextrules
       # - name: TestLogCustomAttributes
       #   env:
       #     GOPROXY: "https://proxy.golang.org"
@@ -2017,6 +2237,45 @@ jobs:
           IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
           IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
         run: go test -v ./dynatrace/api/v1/config/metrics/calculated/service
+      - name: TestCalculatedWebMetrics
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/v1/config/metrics/calculated/web
+      - name: TestCalculatedMobileMetrics
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/v1/config/metrics/calculated/mobile
+      - name: TestCalculatedSyntheticMetrics
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/v1/config/metrics/calculated/synthetic
       - name: TestConditionalHostNaming
         if: success() || failure()
         env:
@@ -2238,6 +2497,19 @@ jobs:
           IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
           IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
         run: go test -v ./dynatrace/api/v2/apitokens
+      - name: TestAGTokens
+        if: success() || failure()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          TF_ACC: true
+          DYNATRACE_DEBUG: true
+          DT_NO_REPAIR_INPUT: true
+          DYNATRACE_ENV_URL: ${{ secrets.DYNATRACE_ENV_URL }}
+          DYNATRACE_API_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+          IAM_CLIENT_ID: ${{ secrets.IAM_CLIENT_ID }}
+          IAM_ACCOUNT_ID: ${{ secrets.IAM_ACCOUNT_ID }}
+          IAM_CLIENT_SECRET: ${{ secrets.IAM_CLIENT_SECRET }}
+        run: go test -v ./dynatrace/api/v2/activegatetokens
       - name: TestDDUPools
         if: success() || failure()
         env:
